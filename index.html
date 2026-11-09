@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<title>Clutch Line CS2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Clutch Line: a dark tactical HUD. One deliberate dark world (no light theme):
+   CT blue and T amber are the two sides of every matchup, green/red only for wins, losses and gains. */
+:root {
+  color-scheme: dark;
+  --bg: #070a0f;
+  --bg-2: #0b1017;
+  --panel: #0f151e;
+  --panel-2: #131b27;
+  --line: #1c2533;
+  --line-2: #29364a;
+  --ink: #e9eef5;
+  --ink-2: #c3ccd9;
+  --muted: #8592a6;
+  --dim: #556175;
+  --ct: #5ea2ff;
+  --ct-deep: #2563c9;
+  --ct-glow: rgba(94, 162, 255, .28);
+  --t: #ffb02e;
+  --t-deep: #c77a0a;
+  --t-glow: rgba(255, 176, 46, .24);
+  --good: #3fdc8a;
+  --bad: #ff5f5f;
+  --live: #ff4d5e;
+  --gold: #f4d27a;
+  --display: "Chakra Petch", "Bahnschrift", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; min-height: 100vh; position: relative; overflow-x: hidden; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(900px 520px at 8% -10%, rgba(94, 162, 255, .16), transparent 60%),
+    radial-gradient(800px 480px at 100% 0%, rgba(255, 176, 46, .10), transparent 60%),
+    linear-gradient(var(--bg), var(--bg)); }
+body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+  background-image: linear-gradient(rgba(120, 150, 190, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(120, 150, 190, .06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 70%); mask-image: linear-gradient(to bottom, #000, transparent 70%); }
+.wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding-block: 22px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .02em; }
+h2 { font-size: 1.6rem; line-height: 1.1; text-transform: uppercase; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+a { color: var(--ct); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--ct); outline-offset: 2px; border-radius: 4px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font-family: var(--mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.note { color: var(--muted); font-size: .86rem; margin: 0; max-width: 68ch; }
+.pos { color: var(--good); } .neg { color: var(--bad); }
+
+/* HUD frame: corner brackets on panels */
+.hud { position: relative; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 10px; }
+.hud::before, .hud::after { content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; border-color: var(--line-2); border-style: solid; }
+.hud::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-top-left-radius: 10px; }
+.hud::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-bottom-right-radius: 10px; }
+
+/* Top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.brand svg { flex: none; filter: drop-shadow(0 0 10px var(--ct-glow)); }
+.brand h1 { font-size: clamp(1.9rem, 4.6vw, 2.7rem); line-height: .95; text-transform: uppercase; letter-spacing: .04em; }
+.brand h1 span { color: var(--t); }
+.brand .label { margin-top: 4px; display: block; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(15, 21, 30, .8);
+  font-family: var(--mono); font-size: .74rem; color: var(--ink-2); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 rgba(63, 220, 138, .6); animation: ping 2s infinite; }
+.dot.warn { background: var(--t); animation: none; box-shadow: 0 0 8px var(--t-glow); }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(63, 220, 138, .55); } 70% { box-shadow: 0 0 0 8px rgba(63, 220, 138, 0); } 100% { box-shadow: 0 0 0 0 rgba(63, 220, 138, 0); } }
+
+/* Hero: featured match + HUD stats */
+.hero { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; }
+.feat { padding: 22px 24px; display: grid; gap: 18px; overflow: hidden; }
+.feat::marker { content: none; }
+.feat .glow { position: absolute; inset: 0; pointer-events: none; border-radius: 10px;
+  background: radial-gradient(420px 220px at 0% 50%, var(--ct-glow), transparent 70%), radial-gradient(420px 220px at 100% 50%, var(--t-glow), transparent 70%); opacity: .55; }
+.feat > * { position: relative; }
+.f-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.f-top .ev { color: var(--ink-2); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.f-match { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px; }
+.f-team { display: grid; gap: 4px; min-width: 0; }
+.f-team.b { text-align: right; }
+.f-team .nm { font-family: var(--display); font-weight: 700; font-size: clamp(1.3rem, 2.8vw, 2.2rem); line-height: 1.05; text-transform: uppercase; overflow-wrap: break-word; }
+.f-team.a .nm { color: var(--ct); text-shadow: 0 0 24px var(--ct-glow); }
+.f-team.b .nm { color: var(--t); text-shadow: 0 0 24px var(--t-glow); }
+.f-team .meta { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+.f-mid { display: grid; justify-items: center; gap: 8px; }
+.f-pcts { display: flex; align-items: baseline; gap: 10px; font-family: var(--display); font-weight: 700; font-size: clamp(2.4rem, 6vw, 3.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.f-pcts .a { color: var(--ct); } .f-pcts .b { color: var(--t); }
+.f-pcts small { font-size: .45em; opacity: .7; }
+.f-pcts .vs { font-family: var(--mono); font-size: .8rem; color: var(--dim); letter-spacing: .2em; }
+.f-cd { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); padding: 3px 10px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg-2); }
+.splitbar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; gap: 2px; background: var(--bg-2); }
+.splitbar i { display: block; height: 100%; }
+.splitbar i.a { background: linear-gradient(90deg, var(--ct-deep), var(--ct)); box-shadow: 0 0 14px var(--ct-glow); }
+.splitbar i.b { background: linear-gradient(90deg, var(--t), var(--t-deep)); box-shadow: 0 0 14px var(--t-glow); }
+.f-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: .84rem; color: var(--muted); }
+.f-foot b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tile { padding: 14px 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.tile .big { font-family: var(--display); font-size: 1.9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.tile .sub { color: var(--muted); font-size: .78rem; line-height: 1.4; }
+.ring { display: flex; align-items: center; gap: 12px; }
+.meter { height: 6px; border-radius: 3px; background: var(--bg-2); overflow: hidden; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--ct-deep), var(--ct)); box-shadow: 0 0 10px var(--ct-glow); }
+
+/* Section heads */
+.sec { display: grid; gap: 16px; min-width: 0; }
+.sechead { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; }
+.sechead .t { display: grid; gap: 6px; }
+.sechead h2::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 10px; background: var(--t); transform: rotate(45deg) translateY(-3px); box-shadow: 0 0 10px var(--t-glow); }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { font: inherit; font-family: var(--mono); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 11px; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+.filters button:hover { color: var(--ink); border-color: var(--dim); }
+.filters button[aria-pressed="true"] { color: var(--bg); background: var(--ct); border-color: var(--ct); box-shadow: 0 0 16px var(--ct-glow); }
+.filters button span { opacity: .7; }
+
+/* Match cards */
+.day { display: grid; gap: 10px; }
+.dayhead { display: flex; align-items: center; gap: 12px; }
+.dayhead::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.dayhead b { font-family: var(--display); font-size: 1.05rem; letter-spacing: .08em; text-transform: uppercase; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.card { padding: 14px 16px 12px; display: grid; gap: 10px; transition: border-color .15s, transform .15s; }
+.card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+.c-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.c-top .time { font-family: var(--mono); font-weight: 700; font-size: .92rem; }
+.cd { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+.cd.live { color: var(--live); font-weight: 700; letter-spacing: .1em; }
+.cd.live::before { content: "● "; animation: blink 1.2s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.c-top .sp { flex: 1; }
+.tag { font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line-2); color: var(--ink-2); text-transform: uppercase; }
+.tag.lan { color: var(--good); border-color: rgba(63, 220, 138, .4); }
+.tier { font-family: var(--display); font-weight: 700; font-size: .78rem; width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--line-2); color: var(--muted); }
+.tier.S { color: var(--bg); background: var(--gold); border-color: var(--gold); box-shadow: 0 0 12px rgba(244, 210, 122, .35); }
+.tier.A { color: var(--ct); border-color: var(--ct); }
+.tier.B { color: var(--ink-2); }
+.c-ev { font-size: .8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -4px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.row .nm { font-weight: 600; font-size: 1.02rem; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.row .meta { font-family: var(--mono); font-size: .72rem; color: var(--dim); }
+.row .pc { font-family: var(--display); font-weight: 700; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; opacity: .7; }
+.row.a .pc { color: var(--ct); } .row.b .pc { color: var(--t); }
+.row.fav .nm { color: var(--ink); }
+.row.fav .pc { opacity: 1; }
+.row.a.fav .pc { text-shadow: 0 0 18px var(--ct-glow); } .row.b.fav .pc { text-shadow: 0 0 18px var(--t-glow); }
+.card .splitbar { height: 6px; }
+.c-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .78rem; color: var(--muted); }
+.c-foot b { font-family: var(--mono); font-weight: 500; color: var(--ink-2); }
+.c-foot .sp { flex: 1; }
+.lineup { font-size: .72rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maps { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .72rem; color: var(--dim); }
+.maps b { font-family: var(--mono); font-weight: 500; color: var(--ink-2); }
+.maps i { font-style: normal; opacity: .75; }
+details.props { font-size: .74rem; color: var(--muted); }
+details.props summary { cursor: pointer; color: var(--dim); list-style: none; }
+details.props summary::-webkit-details-marker { display: none; }
+details.props summary::before { content: "+ "; font-family: var(--mono); }
+details.props[open] summary::before { content: "- "; }
+details.props .pt { display: grid; grid-template-columns: 1fr auto auto auto; gap: 2px 10px; margin-top: 6px; align-items: baseline; }
+details.props .pt b { font-family: var(--mono); font-weight: 500; color: var(--ink-2); }
+details.props .pt .h { color: var(--dim); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; }
+details.props .rt { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+details.props .rt b { font-family: var(--mono); font-weight: 500; color: var(--ink-2); }
+.grade { font-family: var(--mono); font-size: .7rem; padding: 1px 7px; border-radius: 3px; border: 1px solid currentColor; }
+.grade.A { color: var(--good); } .grade.B { color: var(--t); } .grade.C { color: var(--dim); }
+.empty { padding: 32px 18px; color: var(--muted); text-align: center; }
+
+/* Panels */
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.panel { padding: 18px 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.vsrow { display: grid; grid-template-columns: 130px minmax(0, 1fr) 62px; gap: 12px; align-items: center; font-size: .9rem; }
+.vsrow .name { color: var(--ink-2); }
+.vsrow .track { height: 14px; background: var(--bg-2); border-radius: 3px; overflow: hidden; }
+.vsrow .track i { display: block; height: 100%; border-radius: 3px; }
+.vsrow .v { text-align: right; font-family: var(--mono); font-weight: 700; }
+.vsrow.me .name { color: var(--ink); font-weight: 600; }
+.callout { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--bg-2); border: 1px solid var(--line); font-size: .85rem; color: var(--ink-2); }
+.callout b { font-family: var(--display); font-size: 1.4rem; color: var(--t); line-height: 1; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+th, td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+tbody tr:hover td { background: rgba(94, 162, 255, .05); }
+th { font-family: var(--mono); font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td.r, th.r { text-align: right; }
+td.best { color: var(--good); }
+svg text { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+.legend { display: flex; gap: 18px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+
+/* Changelog timeline */
+.tl { display: grid; gap: 0; }
+.tl .ev { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; padding-bottom: 16px; position: relative; }
+.tl .ev::before { content: ""; position: absolute; left: 8px; top: 18px; bottom: 0; width: 2px; background: var(--line); }
+.tl .ev:last-child::before { display: none; }
+.tl .pin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-2); background: var(--bg-2); margin-top: 2px; }
+.tl .pin.up { border-color: var(--good); box-shadow: 0 0 10px rgba(63, 220, 138, .45); }
+.tl .what { display: grid; gap: 3px; font-size: .88rem; min-width: 0; }
+.tl .tried { color: var(--muted); font-size: .8rem; }
+
+/* Power ratings */
+.elo { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.elo .mini { width: 70px; height: 5px; background: var(--bg-2); border-radius: 3px; overflow: hidden; }
+.elo .mini i { display: block; height: 100%; background: var(--ct); }
+.form { display: inline-flex; gap: 3px; }
+.form i { width: 9px; height: 9px; border-radius: 2px; background: var(--bad); opacity: .85; }
+.form i.w { background: var(--good); }
+.rk { color: var(--dim); }
+tr.top3 .rk { color: var(--gold); font-weight: 700; }
+
+/* How it works */
+.how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.how .panel { gap: 8px; }
+.how .step { font-family: var(--display); font-size: 2rem; font-weight: 700; color: transparent; -webkit-text-stroke: 1px var(--muted); opacity: .8; line-height: 1; }
+.how p { margin: 0; color: var(--muted); font-size: .88rem; }
+footer { color: var(--dim); font-size: .78rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+@media (max-width: 1060px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 920px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .two, .how { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .feat { padding: 18px 16px; }
+  .f-match { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .f-mid { grid-column: 1 / -1; grid-row: 2; }
+  .vsrow { grid-template-columns: 104px minmax(0, 1fr) 54px; }
+  .elo .mini { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .dot, .cd.live::before { animation: none; } .card { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
+        <circle cx="23" cy="23" r="16" fill="none" stroke="var(--ct)" stroke-width="2"/>
+        <circle cx="23" cy="23" r="3" fill="var(--t)"/>
+        <path d="M23 2v11M23 33v11M2 23h11M33 23h11" stroke="var(--ct)" stroke-width="2.4" stroke-linecap="square"/>
+      </svg>
+      <div>
+        <h1>Clutch<span>Line</span></h1>
+        <span class="label">CS2 match model · built on HLTV data</span>
+      </div>
+    </div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <div class="hero">
+    <div class="feat hud" id="feat"></div>
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <section class="sec">
+    <div class="sechead">
+      <div class="t"><h2>Upcoming matches</h2>
+        <p class="note">Your time zone. Fair odds carry no margin. Grade A: both lineups announced and every player has 10+ maps on record.</p></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter matches"></div>
+    </div>
+    <div id="slate"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sechead"><div class="t"><h2>Scorecard</h2>
+      <p class="note">Log loss on the same finished matches, lower is better; a coin flip scores 0.693. Each match was predicted by a model trained only on earlier matches.</p></div></div>
+    <div class="two">
+      <div class="panel hud" id="vs"></div>
+      <div class="panel hud" id="tiers"></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="two">
+      <div class="panel hud">
+        <h3>Month by month</h3>
+        <p class="note">Held-out log loss against plain team Elo. The gap should widen as player data fills in.</p>
+        <div id="months"></div>
+      </div>
+      <div class="panel hud">
+        <h3>Calibration</h3>
+        <p class="note">When the model says 70%, that team should win about 70% of the time. On the diagonal is perfect; bigger dots hold more matches.</p>
+        <div id="calib"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="two" style="align-items:start">
+      <div class="panel hud">
+        <div class="sechead"><h2>Power ratings</h2></div>
+        <p class="note">Team Elo, teams active in the last 45 days with 10+ matches. Trend is the change over 30 days.</p>
+        <div class="scroll"><table id="teams"></table></div>
+        <div class="filters"><button type="button" id="more" hidden>Show all</button></div>
+      </div>
+      <div class="panel hud">
+        <div class="sechead"><h2>Changelog</h2></div>
+        <p class="note">Each week, challengers with different settings are tested on the latest months. One replaces the champion only if it beats it on those held-out matches.</p>
+        <div class="tl" id="log"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sechead"><h2>How it works</h2></div>
+    <div class="how">
+      <div class="panel hud"><span class="step">01</span><h3>Ratings</h3><p>Every finished match updates team Elo, a map-by-map Elo, and a rating for each player that moves with him when he changes teams. Recent HLTV stats (rating, ADR, KAST, swing) are tracked per player.</p></div>
+      <div class="panel hud"><span class="step">02</span><h3>Model</h3><p>A logistic regression and a gradient-boosted tree model read about 35 features: rating gaps, the announced lineups, roster continuity, map pools, form, rest, head-to-head, LAN, and HLTV and VRS rank. Their blend is calibrated on the most recent matches.</p></div>
+      <div class="panel hud"><span class="step">03</span><h3>Getting stronger</h3><p>New results reach the ratings daily and the model refits on everything so far. Weekly challenger tests tune the settings. Every published number is logged before the match and graded after, so the live record is real.</p></div>
+    </div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = {"built":1794671841,"meta":{"version":11.1,"trained_at":1794666030,"rows":64174,"data_until":1794664800,"note":"v11.1: props from the map model. Round totals, handicap and overtime per map (score model on top of the map-win number: 62,622 maps backtested month by month, over/under lines calibrated to within 0.1 pt, 26-outcome log loss 3.038 vs 3.058 baseline) and player kills over maps 1-2 (383,234 player-maps: log-likelihood 3.09 vs 3.29 for the player-rate baseline, over/under at the model's line 46.1% predicted vs 46.6% actual). Match-winner model unchanged."},"metrics":{"updated":1794671776,"version":11.1,"model":"map","backtest":{"n":7377,"logloss":0.6034346502207583,"brier":0.20882788431785565,"acc":0.66829334417785,"elo_logloss":0.6249551112047734,"over_n":5653,"over_logloss":0.6591924269143232,"over_base_logloss":0.6745443367204143},"calibration":[{"lo":0.0,"hi":0.1,"n":74,"pred":0.0671910968181671,"actual":0.12162162162162163},{"lo":0.1,"hi":0.2,"n":228,"pred":0.15577470181890354,"actual":0.17543859649122806},{"lo":0.2,"hi":0.3,"n":498,"pred":0.2550013222679366,"actual":0.2891566265060241},{"lo":0.3,"hi":0.4,"n":848,"pred":0.3537306735747279,"actual":0.36202830188679247},{"lo":0.4,"hi":0.5,"n":1159,"pred":0.45088049879820613,"actual":0.45642795513373596},{"lo":0.5,"hi":0.6,"n":1400,"pred":0.5497674398616855,"actual":0.5671428571428572},{"lo":0.6,"hi":0.7,"n":1382,"pred":0.6485941060858105,"actual":0.6476121562952243},{"lo":0.7,"hi":0.8,"n":960,"pred":0.7468361511157089,"actual":0.7666666666666667},{"lo":0.8,"hi":0.9,"n":596,"pred":0.8443832491681997,"actual":0.8506711409395973},{"lo":0.9,"hi":1.0,"n":232,"pred":0.9323417381244462,"actual":0.9482758620689655}],"by_month":[{"month":"2026-07","n":741,"logloss":0.631624143886643,"elo_logloss":0.6734975826083937},{"month":"2026-08","n":1875,"logloss":0.5953579847400408,"elo_logloss":0.6153075953071814},{"month":"2026-09","n":2133,"logloss":0.6022474580547172,"elo_logloss":0.6274917359709004},{"month":"2026-10","n":1961,"logloss":0.5954990273911404,"elo_logloss":0.6097847031885844},{"month":"2026-11","n":667,"logloss":0.6219494481652423,"elo_logloss":0.6346367761095709}],"benchmark":{"matched":1260,"rematch_ambiguous_dropped":12,"result_disagreements":9,"all (mine vs friend)":{"n":1251,"mine":0.618995207973501,"friend":0.615318271178556},"with closing market":{"n":1108,"mine":0.6145038457497972,"friend":0.6146528932024595,"market":0.6002848431237613},"tier S":{"n":97,"mine":0.6352007768288187,"friend":0.6397937106845918,"market":0.6292849186344766},"tier B":{"n":378,"mine":0.59066110760115,"friend":0.5922684808380226,"market":0.5802849568020624},"tier C":{"n":611,"mine":0.6245417955096286,"friend":0.6243703148159959,"market":0.6071038379060638},"over2.5":{"n":958,"mine":0.6764720045780965,"friend":0.6776695837297875}},"audit":{"n_vs_friend":1251,"n_vs_market":1108,"dropped_ambiguous_rematch":12,"dropped_result_mismatch":9,"logloss":{"mine":0.6145038457497972,"friend":0.6146528932024595,"market":0.6002848431237613},"mine_minus_market":{"diff":0.014219002626035955,"ci95":[0.0016820809267679626,0.026272517985655813],"p_better":0.0145},"mine_minus_friend":{"diff":-0.00014904745266247472,"ci95":[-0.011146206592554298,0.01131055750624084],"p_better":0.51975},"friend_minus_market":{"diff":0.01436805007869843,"ci95":[-0.0014101986769292022,0.02955019369206561],"p_better":0.03875},"by_tier":{"S":{"n":97,"mine":0.6352007768288187,"friend":0.6397937106845918,"market":0.6292849186344766,"mine_minus_market":{"diff":0.005915858194342288,"ci95":[-0.024003980400391225,0.03908801353050646],"p_better":0.355}},"B":{"n":378,"mine":0.59066110760115,"friend":0.5922684808380226,"market":0.5802849568020624,"mine_minus_market":{"diff":0.010376150799087575,"ci95":[-0.005929221576316952,0.028781234976151586],"p_better":0.1055}},"C":{"n":611,"mine":0.6245417955096286,"friend":0.6243703148159959,"market":0.6071038379060638,"mine_minus_market":{"diff":0.017437957603564754,"ci95":[0.000745282683905224,0.03317393430847081],"p_better":0.0215}}},"blend_80market_20mine":0.5995667465265315,"betting":{"edge3_cost0":{"bets":780,"roi":-0.022886201821728413,"ci95":[-0.1133668544047883,0.07032675082972592]},"edge3_cost2":{"bets":780,"roi":-0.0735398791611785,"ci95":[-0.15859224368343625,0.01384920369149627]},"edge6_cost0":{"bets":487,"roi":0.02413778322360378,"ci95":[-0.09745505544273213,0.14958671725549055]},"edge6_cost2":{"bets":487,"roi":-0.03184688746175031,"ci95":[-0.14678821103512277,0.08700868196250021]},"edge10_cost0":{"bets":250,"roi":0.09800261078939829,"ci95":[-0.06917887197892467,0.28012489208614294]},"edge10_cost2":{"bets":250,"roi":0.03855275062396309,"ci95":[-0.12313671350187083,0.19634499227886518]}}},"polymarket":{"n":4025,"all":{"mine":0.6062074310828122,"market":0.5853465630937703},"volume_under_5k":{"n":895,"mine":0.5417384863110281,"market":0.5313307568060963},"volume_5k_50k":{"n":1743,"mine":0.5832981919532855,"market":0.5586302592745612},"volume_over_50k":{"n":1387,"mine":0.6765971278193021,"market":0.6537753043946714}},"live_sealed":{"n_graded":160,"n_paired_with_bot":136,"n":130,"logloss":{"mine":0.6556171912494462,"friend":0.6283977169296827,"market":0.5942090442900837},"mine_minus_market":{"diff":0.061408146959362635,"ci95":null,"p_better":null,"days":6},"roster_guess":{"n":6,"mine":0.8177143116837696,"friend":0.5782554492232445,"market":0.6199603889411847}},"live":{"n":160,"logloss":0.6324701420057147,"acc":0.6375}},"predictions":[{"match_id":"b133387","t":"2026-11-14T15:00Z","bo":3,"a":"ex-RUSTEC","b":"Honv\u00e9d","p":0.6856,"ev":"CCT Europe 2026 Series 14","tier":"B","stars":0,"lan":false,"la":"youka yiksrezo Mokuj1n Brilliance rehard","lb":"1NSERT2 noleN esor zs0lt1 marTineZ","tm":[["2.5",0.4222]],"trust":"B","why":"1 player(s) with under 10 maps on record","elo":[1600,1477],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/ex-rustec-vs-honved-14-11-2026","maps":[["dust2",0.659,0.631],["mirage",0.509,0.591],["anubis",0.421,0.716],["inferno",0.236,0.609],["cache",0.232,0.619],["nuke",0.226,0.72],["ancient",0.18,0.584]],"sc":[0.4227,0.2629,0.1593,0.1551],"rt":{"map1":{"exp":21.4,"ot":0.117,"o":{"19.5":0.671,"20.5":0.57,"21.5":0.466,"22.5":0.356,"23.5":0.241}},"map2":{"exp":21.4,"ot":0.116,"o":{"19.5":0.665,"20.5":0.564,"21.5":0.461,"22.5":0.352,"23.5":0.239}}},"kp":[["yiksrezo",1,32.5,32.5,0.479],["youka",1,31.4,30.5,0.527],["Mokuj1n",1,29.7,29.5,0.492],["Brilliance",1,28.0,27.5,0.51],["rehard",1,26.8,26.5,0.497],["1NSERT2",2,29.9,29.5,0.497],["esor",2,28.2,27.5,0.515],["marTineZ",2,27.7,27.5,0.489],["zs0lt1",2,26.0,25.5,0.505],["noleN",2,26.0,25.5,0.505]],"km":"1-2"},{"match_id":"h2400159","t":"2026-11-14T15:00Z","bo":3,"a":"Iberian Soul","b":"FORZE Reload","p":0.5338,"ev":"CCT 2026 Europe Series 13","tier":"A","stars":1,"lan":false,"la":"Ag1l dav1g alex mopoz sausol","lb":"YumsaN HeCkBNk KusMe Lack1 bl1x1","tm":[["2.5",0.4669]],"trust":"A","why":"","elo":[1754,1748],"rank":[54,113],"src":"hltv","url":"https://www.hltv.org/matches/2400159/iberian-soul-vs-forze-reload-cct-2026-europe-series-13","maps":[["nuke",0.802,0.568],["ancient",0.618,0.525],["cache",0.474,0.468],["mirage",0.409,0.487],["anubis",0.168,0.505]],"sc":[0.3003,0.2335,0.2334,0.2328],"rt":{"map1":{"exp":21.7,"ot":0.13,"o":{"19.5":0.695,"20.5":0.592,"21.5":0.489,"22.5":0.376,"23.5":0.254}},"map2":{"exp":21.7,"ot":0.131,"o":{"19.5":0.696,"20.5":0.595,"21.5":0.492,"22.5":0.379,"23.5":0.254}}},"kp":[["sausol",1,29.3,28.5,0.525],["mopoz",1,29.1,28.5,0.514],["Ag1l",1,28.8,28.5,0.497],["dav1g",1,28.6,28.5,0.487],["alex",1,28.4,28.5,0.473],["HeCkBNk",2,30.4,30.5,0.475],["YumsaN",2,29.8,29.5,0.496],["bl1x1",2,28.5,28.5,0.479],["Lack1",2,28.0,27.5,0.507],["KusMe",2,27.5,27.5,0.481]],"km":"1-2"},{"match_id":"b134211","t":"2026-11-14T15:00Z","bo":3,"a":"Revise","b":"Aurora Young Blud","p":0.4181,"ev":"Fiesta Series 4: Closed Qualifier","tier":"C","stars":0,"lan":false,"la":"s1ssi WaSdyy kanode SuNFiX wonimo","lb":"Re1GN fluffy Sa1nTy meetyoxanaji ms2180","tm":[["2.5",0.4601]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1379,1471],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/revise-vs-aurora-young-blood-14-11-2026","maps":[["ancient",0.716,0.429],["mirage",0.682,0.469],["cache",0.506,0.474],["dust2",0.336,0.397],["anubis",0.181,0.438],["inferno",0.048,0.461]],"sc":[0.2141,0.204,0.2562,0.3258],"rt":{"map1":{"exp":21.5,"ot":0.124,"o":{"19.5":0.686,"20.5":0.577,"21.5":0.476,"22.5":0.361,"23.5":0.248}},"map2":{"exp":21.5,"ot":0.124,"o":{"19.5":0.686,"20.5":0.577,"21.5":0.477,"22.5":0.361,"23.5":0.249}}},"kp":[["WaSdyy",1,32.2,31.5,0.515],["SuNFiX",1,30.2,29.5,0.515],["s1ssi",1,28.4,27.5,0.526],["wonimo",1,27.9,27.5,0.501],["kanode",1,26.0,25.5,0.509],["meetyoxanaji",2,32.7,32.5,0.491],["fluffy",2,31.8,31.5,0.499],["Re1GN",2,30.5,30.5,0.478],["Sa1nTy",2,28.9,28.5,0.505],["ms2180",2,27.5,27.5,0.481]],"km":"1-2"},{"match_id":"b133850","t":"2026-11-14T15:00Z","bo":3,"a":"LUNTIKI","b":"Spirit Academy","p":0.6034,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"pleynnn DAN9ARMATURA SquEzxc tw1sterzaza synyx","lb":"VILBy Kiryasoo Netrix S1nside Tresh","tm":[["2.5",0.4515]],"trust":"A","why":"","elo":[1538,1670],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/luntiki-vs-spirit-academy-14-11-2026","maps":[["dust2",0.542,0.635],["ancient",0.513,0.594],["nuke",0.432,0.543],["cache",0.383,0.501],["mirage",0.333,0.571],["anubis",0.265,0.642]],"sc":[0.3414,0.262,0.1895,0.2071],"rt":{"map1":{"exp":21.6,"ot":0.124,"o":{"19.5":0.682,"20.5":0.581,"21.5":0.479,"22.5":0.368,"23.5":0.25}},"map2":{"exp":21.6,"ot":0.125,"o":{"19.5":0.683,"20.5":0.582,"21.5":0.48,"22.5":0.369,"23.5":0.25}}},"kp":[["pleynnn",1,31.1,30.5,0.511],["SquEzxc",1,30.6,30.5,0.487],["synyx",1,29.2,28.5,0.522],["tw1sterzaza",1,29.2,28.5,0.517],["DAN9ARMATURA",1,27.6,27.5,0.483],["S1nside",2,30.5,30.5,0.481],["Kiryasoo",2,30.1,29.5,0.511],["Tresh",2,26.5,26.5,0.479],["Netrix",2,26.1,25.5,0.514],["VILBy",2,25.4,24.5,0.528]],"km":"1-2"},{"match_id":"b133208","t":"2026-11-14T16:00Z","bo":3,"a":"tao toma","b":"BARCA","p":0.3478,"ev":"CCT South America 2026 Series 8","tier":"B","stars":0,"lan":false,"la":"vsm Lucaozy hardzao CutzMeretz machado","lb":"pancc happ zmb divine Alisson","tm":[["2.5",0.4289]],"trust":"A","why":"","elo":[1564,1606],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/tao-toma-vs-barca-br-14-11-2026","maps":[["mirage",0.479,0.446],["inferno",0.44,0.328],["cache",0.408,0.326],["dust2",0.343,0.382],["ancient",0.331,0.345],["nuke",0.311,0.372],["anubis",0.156,0.402]],"sc":[0.1901,0.1577,0.2712,0.381],"rt":{"map1":{"exp":21.5,"ot":0.119,"o":{"19.5":0.675,"20.5":0.574,"21.5":0.47,"22.5":0.358,"23.5":0.241}},"map2":{"exp":21.5,"ot":0.119,"o":{"19.5":0.676,"20.5":0.575,"21.5":0.471,"22.5":0.358,"23.5":0.242}}},"kp":[["vsm",1,28.1,27.5,0.511],["machado",1,27.9,27.5,0.502],["Lucaozy",1,27.4,26.5,0.525],["hardzao",1,26.2,25.5,0.514],["CutzMeretz",1,22.8,22.5,0.493],["Alisson",2,30.5,30.5,0.483],["pancc",2,29.9,29.5,0.504],["happ",2,27.9,27.5,0.5],["divine",2,27.5,27.5,0.482],["zmb",2,27.2,26.5,0.52]],"km":"1-2"},{"match_id":"b133886","t":"2026-11-14T17:00Z","bo":1,"a":"Young TigeRES","b":"DINERO","p":0.6986,"ev":"ESEA Season 59: Advanced Division - Europe","tier":"C","stars":0,"lan":false,"la":"sol Gashhhi4 z3ndy motya c0ldzy","lb":"w1deboy s1an wast3d SUNset neiter","tm":[],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1568,1253],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/young-tigeres-vs-dinero-14-11-2026","maps":[["dust2",0.303,0.761],["ancient",0.242,0.71],["nuke",0.22,0.698],["mirage",0.183,0.724]],"sc":[],"rt":{"map1":{"exp":21.0,"ot":0.106,"o":{"19.5":0.627,"20.5":0.525,"21.5":0.426,"22.5":0.317,"23.5":0.212}},"map2":{"exp":21.0,"ot":0.106,"o":{"19.5":0.627,"20.5":0.525,"21.5":0.426,"22.5":0.317,"23.5":0.212}}},"kp":[["z3ndy",1,15.9,15.5,0.507],["c0ldzy",1,15.4,15.5,0.468],["Gashhhi4",1,13.8,13.5,0.497],["motya",1,13.6,13.5,0.477],["sol",1,13.5,13.5,0.47],["s1an",2,14.7,14.5,0.48],["neiter",2,13.8,13.5,0.491],["w1deboy",2,13.2,12.5,0.515],["wast3d",2,11.9,11.5,0.495],["SUNset",2,11.8,11.5,0.486]],"km":"1"},{"match_id":"b133852","t":"2026-11-14T18:00Z","bo":3,"a":"33","b":"GenOne","p":0.7085,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"shg Raijin bluewh1te executor Z1Nny","lb":"SIXER Djoko Brooxsy Keoz bL4SEZ","tm":[["2.5",0.4096]],"trust":"A","why":"","elo":[1706,1466],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/tpudcatb-tpu-vs-genone-14-11-2026","maps":[["dust2",0.741,0.626],["nuke",0.724,0.701],["inferno",0.41,0.675],["anubis",0.284,0.621],["ancient",0.27,0.656]],"sc":[0.4376,0.271,0.1387,0.1528],"rt":{"map1":{"exp":21.4,"ot":0.116,"o":{"19.5":0.662,"20.5":0.567,"21.5":0.465,"22.5":0.358,"23.5":0.241}},"map2":{"exp":21.4,"ot":0.117,"o":{"19.5":0.662,"20.5":0.568,"21.5":0.464,"22.5":0.351,"23.5":0.232}}},"kp":[["shg",1,31.1,30.5,0.515],["Z1Nny",1,31.0,30.5,0.51],["Raijin",1,29.9,29.5,0.504],["executor",1,29.6,29.5,0.486],["bluewh1te",1,28.6,28.5,0.483],["Djoko",2,28.1,27.5,0.511],["Brooxsy",2,27.8,27.5,0.494],["SIXER",2,27.5,27.5,0.477],["bL4SEZ",2,27.2,26.5,0.515],["Keoz",2,26.2,25.5,0.516]],"km":"1-2"},{"match_id":"b133388","t":"2026-11-14T18:00Z","bo":3,"a":"BAKS","b":"Illyrians","p":0.6908,"ev":"CCT Europe 2026 Series 14","tier":"B","stars":0,"lan":false,"la":"Norwi glowiing whisper danistzz turbo","lb":"BledarD ammar cerber Lewis rosoneriii","tm":[["2.5",0.4297]],"trust":"A","why":"","elo":[1659,1591],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/baks-esports-vs-illyrians-14-11-2026","maps":[["cache",0.75,0.655],["dust2",0.566,0.589],["mirage",0.507,0.601],["ancient",0.374,0.634],["inferno",0.178,0.649],["nuke",0.072,0.755]],"sc":[0.4235,0.2673,0.1624,0.1468],"rt":{"map1":{"exp":21.5,"ot":0.12,"o":{"19.5":0.676,"20.5":0.573,"21.5":0.47,"22.5":0.359,"23.5":0.244}},"map2":{"exp":21.5,"ot":0.124,"o":{"19.5":0.678,"20.5":0.573,"21.5":0.471,"22.5":0.36,"23.5":0.244}}},"kp":[["glowiing",1,31.0,30.5,0.509],["danistzz",1,30.8,30.5,0.498],["whisper",1,30.7,30.5,0.492],["Norwi",1,29.3,28.5,0.528],["turbo",1,29.1,28.5,0.514],["cerber",2,29.5,29.5,0.478],["Lewis",2,28.9,28.5,0.497],["BledarD",2,28.3,27.5,0.521],["ammar",2,27.9,27.5,0.5],["rosoneriii",2,25.7,25.5,0.487]],"km":"1-2"},{"match_id":"b133252","t":"2026-11-14T18:00Z","bo":3,"a":"WW","b":"Hype Tech","p":0.8866,"ev":"CCT Europe 2026 Series 13","tier":"B","stars":0,"lan":false,"la":"tried StRoGo Ryujin kelieN m3wsu","lb":"","tm":[["2.5",0.2235]],"trust":"C","why":"no lineup data for at least one team","elo":[1615,1400],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/ww-vs-hype-tech-14-11-2026","maps":[["mirage",0.528,0.864],["dust2",0.493,0.847],["inferno",0.309,0.811],["nuke",0.284,0.831],["cache",0.254,0.789],["anubis",0.241,0.821],["ancient",0.171,0.798]],"sc":[0.7026,0.184,0.0395,0.0739],"rt":{"map1":{"exp":20.2,"ot":0.082,"o":{"19.5":0.54,"20.5":0.435,"21.5":0.344,"22.5":0.255,"23.5":0.165}},"map2":{"exp":19.9,"ot":0.072,"o":{"19.5":0.507,"20.5":0.402,"21.5":0.313,"22.5":0.233,"23.5":0.149}}},"kp":[],"km":""},{"match_id":"b134206","t":"2026-11-14T18:00Z","bo":1,"a":"Younglings","b":"DINERO","p":0.601,"ev":"ESEA Season 59: Advanced Division - Europe","tier":"C","stars":0,"lan":false,"la":"MoNaTy cheerful zazzer emiiri ?","lb":"w1deboy s1an wast3d SUNset neiter","tm":[],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1384,1253],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/younglings-vs-dinero-14-11-2026","maps":[["ancient",0.333,0.616],["dust2",0.307,0.589],["mirage",0.207,0.653],["anubis",0.07,0.669],["cache",0.054,0.645]],"sc":[],"rt":{"map1":{"exp":21.4,"ot":0.118,"o":{"19.5":0.67,"20.5":0.567,"21.5":0.466,"22.5":0.352,"23.5":0.241}},"map2":{"exp":21.4,"ot":0.118,"o":{"19.5":0.67,"20.5":0.567,"21.5":0.466,"22.5":0.352,"23.5":0.241}}},"kp":[["?",1,15.5,15.5,0.474],["MoNaTy",1,15.0,14.5,0.514],["cheerful",1,14.8,14.5,0.5],["zazzer",1,14.5,14.5,0.471],["emiiri",1,14.2,13.5,0.534],["s1an",2,15.6,15.5,0.482],["neiter",2,14.7,14.5,0.485],["w1deboy",2,14.0,13.5,0.508],["wast3d",2,12.6,12.5,0.478],["SUNset",2,12.4,12.5,0.465]],"km":"1"},{"match_id":"b134207","t":"2026-11-14T18:00Z","bo":1,"a":"Spirit Academy Green","b":"BANGARANGA","p":0.6248,"ev":"ESEA Season 59: Advanced Division - Europe","tier":"C","stars":0,"lan":false,"la":"hyp3else d3nks maun flytex sae","lb":"rafftu FincHY shinejz doublemagic rifler","tm":[],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1388,1224],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/spirit-academy-green-vs-bangaranga-14-11-2026","maps":[["dust2",0.333,0.598],["mirage",0.217,0.573],["cache",0.137,0.634],["nuke",0.128,0.649],["anubis",0.103,0.668],["ancient",0.07,0.521]],"sc":[],"rt":{"map1":{"exp":21.5,"ot":0.122,"o":{"19.5":0.675,"20.5":0.572,"21.5":0.471,"22.5":0.357,"23.5":0.244}},"map2":{"exp":21.5,"ot":0.122,"o":{"19.5":0.675,"20.5":0.572,"21.5":0.471,"22.5":0.357,"23.5":0.244}}},"kp":[["maun",1,16.0,15.5,0.515],["hyp3else",1,15.9,15.5,0.506],["flytex",1,14.5,14.5,0.471],["d3nks",1,13.4,13.5,0.461],["sae",1,12.3,12.5,0.457],["rafftu",2,13.6,13.5,0.479],["shinejz",2,13.3,12.5,0.531],["FincHY",2,13.2,12.5,0.522],["doublemagic",2,12.9,12.5,0.504],["rifler",2,12.3,11.5,0.533]],"km":"1"},{"match_id":"h2400160","t":"2026-11-14T18:00Z","bo":3,"a":"WW","b":"ex-Zero Tenacity","p":0.3403,"ev":"CCT 2026 Europe Series 13","tier":"C","stars":0,"lan":false,"la":"tried StRoGo Ryujin kelieN m3wsu","lb":"Dragon VLDN Kind0 Cjoffo RiiL3","tm":[["2.5",0.4452]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1615,1836],"rank":[null,null],"src":"hltv","url":"https://www.hltv.org/matches/2400160/ww-vs-ex-zero-tenacity-cct-2026-europe-series-13","maps":[["mirage",0.72,0.472],["dust2",0.55,0.404],["inferno",0.453,0.313],["cache",0.355,0.281],["nuke",0.295,0.364],["anubis",0.102,0.409]],"sc":[0.1699,0.1703,0.2749,0.3848],"rt":{"map1":{"exp":21.4,"ot":0.117,"o":{"19.5":0.672,"20.5":0.565,"21.5":0.463,"22.5":0.348,"23.5":0.237}},"map2":{"exp":21.4,"ot":0.117,"o":{"19.5":0.668,"20.5":0.561,"21.5":0.46,"22.5":0.343,"23.5":0.233}}},"kp":[["tried",1,30.4,29.5,0.522],["Ryujin",1,28.0,27.5,0.506],["m3wsu",1,27.7,27.5,0.491],["kelieN",1,27.1,26.5,0.513],["StRoGo",1,23.5,23.5,0.475],["Dragon",2,30.9,30.5,0.5],["VLDN",2,30.3,29.5,0.522],["Kind0",2,29.0,28.5,0.51],["Cjoffo",2,28.8,28.5,0.497],["RiiL3",2,27.3,26.5,0.524]],"km":"1-2"},{"match_id":"b133207","t":"2026-11-14T19:00Z","bo":3,"a":"ex-Yawara","b":"QUINTESS\u00caNCIA","p":0.4947,"ev":"CCT South America 2026 Series 8","tier":"B","stars":0,"lan":false,"la":"j0w tele texxas deemO Ceruttera","lb":"edv n0page prozinszsz cz1k4 lipshawty","tm":[["2.5",0.4686]],"trust":"A","why":"","elo":[1407,1423],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/quintessencia-vs-ex-yawara-14-11-2026","maps":[["dust2",0.516,0.496],["cache",0.478,0.402],["mirage",0.475,0.531],["ancient",0.402,0.495],["inferno",0.296,0.474],["anubis",0.227,0.594],["nuke",0.108,0.572]],"sc":[0.2609,0.2338,0.2349,0.2705],"rt":{"map1":{"exp":21.6,"ot":0.125,"o":{"19.5":0.686,"20.5":0.582,"21.5":0.479,"22.5":0.37,"23.5":0.251}},"map2":{"exp":21.6,"ot":0.124,"o":{"19.5":0.686,"20.5":0.582,"21.5":0.48,"22.5":0.37,"23.5":0.252}}},"kp":[["deemO",1,28.7,28.5,0.492],["tele",1,28.3,27.5,0.524],["j0w",1,28.2,27.5,0.519],["Ceruttera",1,28.1,27.5,0.516],["texxas",1,22.9,22.5,0.506],["edv",2,31.2,30.5,0.516],["prozinszsz",2,29.7,29.5,0.492],["lipshawty",2,29.1,28.5,0.514],["cz1k4",2,28.8,28.5,0.495],["n0page",2,24.0,23.5,0.507]],"km":"1-2"},{"match_id":"b134215","t":"2026-11-14T21:00Z","bo":3,"a":"paiN Academy","b":"Underworld","p":0.7581,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"misfit Tatu tsug Rkzinho shazn","lb":"paqueta KLR tgS extazzy neskk","tm":[["2.5",0.3526]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1298,1285],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/pain-gaming-academy-vs-underworld-14-11-2026","maps":[["mirage",0.771,0.767],["dust2",0.688,0.694],["inferno",0.296,0.676],["cache",0.285,0.734],["nuke",0.197,0.715],["anubis",0.099,0.783],["ancient",0.066,0.606]],"sc":[0.5071,0.251,0.1015,0.1403],"rt":{"map1":{"exp":21.0,"ot":0.104,"o":{"19.5":0.628,"20.5":0.524,"21.5":0.425,"22.5":0.316,"23.5":0.213}},"map2":{"exp":21.0,"ot":0.103,"o":{"19.5":0.625,"20.5":0.518,"21.5":0.418,"22.5":0.31,"23.5":0.209}}},"kp":[["misfit",1,31.6,31.5,0.485],["Rkzinho",1,30.6,30.5,0.487],["Tatu",1,29.4,29.5,0.471],["tsug",1,28.0,27.5,0.511],["shazn",1,27.8,27.5,0.496],["paqueta",2,28.4,27.5,0.524],["extazzy",2,26.8,26.5,0.489],["KLR",2,25.6,25.5,0.48],["neskk",2,25.3,24.5,0.518],["tgS",2,22.3,21.5,0.521]],"km":"1-2"},{"match_id":"b133205","t":"2026-11-14T22:00Z","bo":3,"a":"Galorys","b":"Low Cortisol BR","p":0.5493,"ev":"CCT South America 2026 Series 8","tier":"B","stars":0,"lan":false,"la":"PKL detr0ittJ tomate gbb destiny","lb":"t9rnay zede fokiu levi -stormzin","tm":[["2.5",0.4644]],"trust":"A","why":"","elo":[1615,1501],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/galorys-cs-vs-low-cortisol-br-14-11-2026","maps":[["ancient",0.733,0.577],["dust2",0.601,0.521],["nuke",0.466,0.529],["inferno",0.214,0.515],["anubis",0.181,0.535],["mirage",0.179,0.455],["cache",0.125,0.579]],"sc":[0.3018,0.2475,0.2169,0.2338],"rt":{"map1":{"exp":21.5,"ot":0.121,"o":{"19.5":0.68,"20.5":0.581,"21.5":0.479,"22.5":0.37,"23.5":0.249}},"map2":{"exp":21.6,"ot":0.123,"o":{"19.5":0.685,"20.5":0.585,"21.5":0.483,"22.5":0.371,"23.5":0.251}}},"kp":[["gbb",1,29.8,29.5,0.494],["tomate",1,29.6,29.5,0.488],["detr0ittJ",1,29.6,29.5,0.488],["destiny",1,29.2,28.5,0.517],["PKL",1,25.0,24.5,0.507],["t9rnay",2,29.0,28.5,0.506],["levi",2,28.9,28.5,0.502],["zede",2,28.0,27.5,0.506],["fokiu",2,27.6,27.5,0.486],["-stormzin",2,26.6,26.5,0.486]],"km":"1-2"},{"match_id":"b134216","t":"2026-11-14T23:45Z","bo":3,"a":"ALKA","b":"arroba","p":0.7034,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"vinaabEAST bnc proSHOW cerolzin puni","lb":"","tm":[["2.5",0.3977]],"trust":"C","why":"no lineup data for at least one team","elo":[1355,1350],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/alka-vs-arroba-14-11-2026","maps":[["dust2",0.527,0.711],["ancient",0.439,0.694],["mirage",0.356,0.663],["nuke",0.354,0.693],["inferno",0.315,0.638],["cache",0.311,0.635],["anubis",0.137,0.597]],"sc":[0.4373,0.2661,0.1316,0.165],"rt":{"map1":{"exp":21.3,"ot":0.115,"o":{"19.5":0.657,"20.5":0.555,"21.5":0.454,"22.5":0.339,"23.5":0.23}},"map2":{"exp":21.3,"ot":0.114,"o":{"19.5":0.654,"20.5":0.552,"21.5":0.452,"22.5":0.338,"23.5":0.229}}},"kp":[],"km":""},{"match_id":"b134217","t":"2026-11-14T23:45Z","bo":3,"a":"street dogs","b":"MEIA NOITE","p":0.1439,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"","lb":"JOTA bsd fREQ Jerr1 abr","tm":[["2.5",0.2696]],"trust":"C","why":"no lineup data for at least one team","elo":[1250,1386],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/street-dogs-vs-meia-noite-14-11-2026","maps":[["mirage",0.462,0.194],["ancient",0.408,0.178],["cache",0.372,0.235],["dust2",0.362,0.179],["inferno",0.355,0.239],["nuke",0.315,0.185],["anubis",0.051,0.257]],"sc":[0.0908,0.0532,0.2164,0.6397],"rt":{"map1":{"exp":20.5,"ot":0.09,"o":{"19.5":0.571,"20.5":0.464,"21.5":0.37,"22.5":0.271,"23.5":0.178}},"map2":{"exp":20.5,"ot":0.09,"o":{"19.5":0.57,"20.5":0.463,"21.5":0.37,"22.5":0.27,"23.5":0.178}}},"kp":[],"km":""},{"match_id":"b132600","t":"2026-11-15T08:00Z","bo":5,"a":"Spirit","b":"FURIA","p":0.5516,"ev":"BLAST Rivals Fall 2026","tier":"S","stars":5,"lan":true,"la":"tN1R donk sh1ro magixx zont1x","lb":"KSCERATO molodoy YEKINDAR FalleN yuurih","tm":[],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[2161,2218],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/spirit-vs-furia-15-11-2026","maps":[["mirage",0.989,0.511],["nuke",0.96,0.503],["dust2",0.952,0.53],["cache",0.947,0.513],["ancient",0.648,0.626],["anubis",0.433,0.614],["inferno",0.07,0.34]],"sc":[],"rt":{"map1":{"exp":21.6,"ot":0.125,"o":{"19.5":0.685,"20.5":0.583,"21.5":0.48,"22.5":0.371,"23.5":0.251}},"map2":{"exp":21.6,"ot":0.125,"o":{"19.5":0.684,"20.5":0.582,"21.5":0.48,"22.5":0.37,"23.5":0.251}}},"kp":[["donk",1,34.8,34.5,0.494],["sh1ro",1,30.6,30.5,0.487],["tN1R",1,27.8,27.5,0.498],["zont1x",1,25.7,25.5,0.491],["magixx",1,24.6,24.5,0.488],["molodoy",2,30.6,30.5,0.485],["KSCERATO",2,29.3,28.5,0.522],["YEKINDAR",2,28.4,28.5,0.476],["yuurih",2,25.5,25.5,0.481],["FalleN",2,24.0,23.5,0.509]],"km":"1-2"},{"match_id":"b133769","t":"2026-11-15T09:00Z","bo":3,"a":"FaZe","b":"fnatic","p":0.4528,"ev":"PGL Cluj-Napoca 2027: Closed Qualifier","tier":"A","stars":2,"lan":false,"la":"JBOEN Twistzz jcobbb frozen Neityu","lb":"fEAR jambo jackasmo cairne mazay","tm":[["2.5",0.4631]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1902,1918],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/faze-vs-fnatic-15-11-2026","maps":[["cache",0.601,0.431],["ancient",0.474,0.448],["dust2",0.445,0.495],["anubis",0.436,0.437],["mirage",0.408,0.486],["inferno",0.11,0.384]],"sc":[0.2448,0.2079,0.2551,0.2921],"rt":{"map1":{"exp":21.6,"ot":0.126,"o":{"19.5":0.689,"20.5":0.584,"21.5":0.482,"22.5":0.372,"23.5":0.255}},"map2":{"exp":21.6,"ot":0.124,"o":{"19.5":0.687,"20.5":0.582,"21.5":0.48,"22.5":0.371,"23.5":0.254}}},"kp":[["JBOEN",1,30.3,29.5,0.52],["frozen",1,29.2,28.5,0.519],["Twistzz",1,29.1,28.5,0.513],["jcobbb",1,28.3,27.5,0.522],["Neityu",1,25.7,25.5,0.493],["jambo",2,30.8,30.5,0.499],["cairne",2,30.5,30.5,0.478],["jackasmo",2,29.9,29.5,0.501],["mazay",2,29.2,28.5,0.518],["fEAR",2,25.5,25.5,0.477]],"km":"1-2"},{"match_id":"b133253","t":"2026-11-15T09:00Z","bo":3,"a":"PRIVATE","b":"Betclic","p":0.4662,"ev":"CCT Europe 2026 Series 13","tier":"A","stars":1,"lan":false,"la":"z1k4 H4SAN4TOR sowalio 1eeR sh1nejezzz","lb":"ultimate Prism Qlocuu Ex1st Demho","tm":[["2.5",0.4676]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1732,1825],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/betclic-apogee-esports-vs-private-15-11-2026","maps":[["nuke",0.474,0.431],["mirage",0.471,0.519],["ancient",0.456,0.5],["cache",0.398,0.45],["dust2",0.378,0.524],["anubis",0.302,0.458]],"sc":[0.2391,0.2271,0.2405,0.2933],"rt":{"map1":{"exp":21.6,"ot":0.127,"o":{"19.5":0.691,"20.5":0.587,"21.5":0.485,"22.5":0.375,"23.5":0.254}},"map2":{"exp":21.6,"ot":0.127,"o":{"19.5":0.69,"20.5":0.587,"21.5":0.485,"22.5":0.374,"23.5":0.254}}},"kp":[["H4SAN4TOR",1,30.9,30.5,0.503],["z1k4",1,30.7,30.5,0.493],["sowalio",1,28.3,27.5,0.522],["sh1nejezzz",1,27.1,26.5,0.515],["1eeR",1,26.2,25.5,0.522],["ultimate",2,30.8,30.5,0.498],["Ex1st",2,29.5,29.5,0.481],["Prism",2,28.6,28.5,0.488],["Qlocuu",2,27.6,27.5,0.486],["Demho",2,27.2,26.5,0.519]],"km":"1-2"},{"match_id":"b134223","t":"2026-11-15T09:00Z","bo":3,"a":"NAVI Junior","b":"The Chosen Few","p":0.5912,"ev":"United21 Season 58","tier":"C","stars":0,"lan":false,"la":"MahaR skizzyee snatchie kodak r3kv1em","lb":"shaiK Skrimo SPELLAN KalubeR milky","tm":[["2.5",0.4626]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1550,1373],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/natus-vincere-junior-vs-the-chosen-few-15-11-2026","maps":[["mirage",0.691,0.587],["dust2",0.494,0.557],["anubis",0.434,0.571],["inferno",0.418,0.451],["nuke",0.167,0.629],["cache",0.159,0.553],["ancient",0.134,0.554]],"sc":[0.329,0.2622,0.2004,0.2084],"rt":{"map1":{"exp":21.5,"ot":0.122,"o":{"19.5":0.683,"20.5":0.579,"21.5":0.477,"22.5":0.36,"23.5":0.247}},"map2":{"exp":21.5,"ot":0.12,"o":{"19.5":0.684,"20.5":0.577,"21.5":0.474,"22.5":0.357,"23.5":0.245}}},"kp":[["MahaR",1,29.6,29.5,0.487],["skizzyee",1,29.1,28.5,0.512],["snatchie",1,27.6,27.5,0.484],["kodak",1,26.1,25.5,0.518],["r3kv1em",1,24.2,23.5,0.522],["KalubeR",2,28.0,27.5,0.505],["Skrimo",2,27.1,26.5,0.514],["shaiK",2,26.8,26.5,0.498],["SPELLAN",2,25.0,24.5,0.511],["milky",2,25.0,24.5,0.507]],"km":"1-2"},{"match_id":"b133770","t":"2026-11-15T09:00Z","bo":3,"a":"HEROIC","b":"magic","p":0.5393,"ev":"PGL Cluj-Napoca 2027: Closed Qualifier","tier":"A","stars":2,"lan":false,"la":"Brollan MartinezSa nilo Chr1zN susp","lb":"lattykk sFade8 MaSvAl AW tENZY","tm":[["2.5",0.465]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1951,1878],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/heroic-vs-magic-ru-15-11-2026","maps":[["inferno",0.672,0.562],["ancient",0.604,0.524],["dust2",0.518,0.51],["mirage",0.491,0.502],["cache",0.166,0.547],["anubis",0.036,0.42]],"sc":[0.2967,0.2426,0.2224,0.2384],"rt":{"map1":{"exp":21.5,"ot":0.119,"o":{"19.5":0.683,"20.5":0.58,"21.5":0.477,"22.5":0.366,"23.5":0.247}},"map2":{"exp":21.5,"ot":0.118,"o":{"19.5":0.681,"20.5":0.58,"21.5":0.477,"22.5":0.364,"23.5":0.245}}},"kp":[["nilo",1,31.2,30.5,0.515],["MartinezSa",1,29.7,29.5,0.493],["Brollan",1,29.0,28.5,0.51],["Chr1zN",1,27.9,27.5,0.502],["susp",1,26.9,26.5,0.503],["tENZY",2,30.0,29.5,0.506],["lattykk",2,29.7,29.5,0.49],["MaSvAl",2,27.7,27.5,0.491],["AW",2,27.7,27.5,0.488],["sFade8",2,27.4,27.5,0.472]],"km":"1-2"},{"match_id":"b133934","t":"2026-11-15T09:00Z","bo":3,"a":"PRIVATE","b":"FORZE Reload","p":0.4997,"ev":"European Pro League Series 10","tier":"A","stars":1,"lan":false,"la":"1eeR sowalio sh1nejezzz H4SAN4TOR z1k4","lb":"YumsaN HeCkBNk KusMe Lack1 bl1x1","tm":[["2.5",0.4667]],"trust":"A","why":"","elo":[1732,1748],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/private-vs-forze-reload-15-11-2026","maps":[["ancient",0.524,0.508],["dust2",0.48,0.505],["mirage",0.465,0.515],["cache",0.421,0.452],["nuke",0.327,0.483],["anubis",0.275,0.52]],"sc":[0.2666,0.2331,0.2336,0.2667],"rt":{"map1":{"exp":21.5,"ot":0.127,"o":{"19.5":0.685,"20.5":0.578,"21.5":0.479,"22.5":0.366,"23.5":0.25}},"map2":{"exp":21.6,"ot":0.127,"o":{"19.5":0.686,"20.5":0.579,"21.5":0.479,"22.5":0.366,"23.5":0.251}}},"kp":[["H4SAN4TOR",1,30.9,30.5,0.499],["z1k4",1,30.6,30.5,0.487],["sowalio",1,28.1,27.5,0.514],["sh1nejezzz",1,27.0,26.5,0.509],["1eeR",1,26.2,25.5,0.518],["HeCkBNk",2,30.2,29.5,0.517],["YumsaN",2,29.6,29.5,0.486],["bl1x1",2,28.3,27.5,0.527],["Lack1",2,27.8,27.5,0.497],["KusMe",2,27.3,26.5,0.523]],"km":"1-2"},{"match_id":"b133853","t":"2026-11-15T09:00Z","bo":3,"a":"ex-RUSTEC","b":"Drama","p":0.7391,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"youka yiksrezo Mokuj1n Brilliance rehard","lb":"andr1x choiv7 Frip DEPRESHN Chill","tm":[["2.5",0.3835]],"trust":"B","why":"1 player(s) with under 10 maps on record","elo":[1600,1409],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/ex-rustec-vs-drama-esports-15-11-2026","maps":[["dust2",0.705,0.72],["nuke",0.492,0.703],["inferno",0.385,0.637],["mirage",0.377,0.66],["cache",0.183,0.7],["ancient",0.172,0.636],["anubis",0.115,0.798]],"sc":[0.4771,0.262,0.1215,0.1395],"rt":{"map1":{"exp":21.3,"ot":0.112,"o":{"19.5":0.656,"20.5":0.558,"21.5":0.454,"22.5":0.342,"23.5":0.228}},"map2":{"exp":21.2,"ot":0.108,"o":{"19.5":0.636,"20.5":0.538,"21.5":0.437,"22.5":0.332,"23.5":0.222}}},"kp":[["yiksrezo",1,32.9,32.5,0.503],["youka",1,31.7,31.5,0.492],["Mokuj1n",1,30.2,29.5,0.518],["Brilliance",1,28.4,28.5,0.474],["rehard",1,27.1,26.5,0.516],["DEPRESHN",2,30.2,29.5,0.509],["Frip",2,29.0,28.5,0.5],["Chill",2,26.3,25.5,0.522],["andr1x",2,25.8,25.5,0.493],["choiv7",2,23.1,22.5,0.512]],"km":"1-2"},{"match_id":"b133389","t":"2026-11-15T09:00Z","bo":3,"a":"Walczaki","b":"MOUZ NXT","p":0.5127,"ev":"CCT Europe 2026 Series 14","tier":"B","stars":0,"lan":false,"la":"reiko Eskyy bajmi olimp mrouz","lb":"deeN Ay0k Nikodeon eSx mixer","tm":[["2.5",0.4732]],"trust":"B","why":"1 player(s) with under 10 maps on record","elo":[1541,1434],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/walczaki-vs-mouz-nxt-15-11-2026","maps":[["anubis",0.647,0.595],["nuke",0.615,0.48],["ancient",0.47,0.478],["cache",0.296,0.403],["mirage",0.21,0.496],["dust2",0.149,0.418],["inferno",0.119,0.612]],"sc":[0.2884,0.2243,0.2489,0.2384],"rt":{"map1":{"exp":21.6,"ot":0.129,"o":{"19.5":0.693,"20.5":0.591,"21.5":0.489,"22.5":0.377,"23.5":0.255}},"map2":{"exp":21.6,"ot":0.127,"o":{"19.5":0.692,"20.5":0.589,"21.5":0.487,"22.5":0.375,"23.5":0.257}}},"kp":[["reiko",1,33.2,32.5,0.518],["olimp",1,29.5,29.5,0.48],["bajmi",1,29.3,28.5,0.522],["Eskyy",1,27.8,27.5,0.496],["mrouz",1,26.8,26.5,0.495],["Nikodeon",2,31.1,30.5,0.509],["eSx",2,29.8,29.5,0.495],["deeN",2,28.5,28.5,0.478],["Ay0k",2,28.4,28.5,0.473],["mixer",2,26.5,26.5,0.479]],"km":"1-2"},{"match_id":"b133935","t":"2026-11-15T11:30Z","bo":3,"a":"WW","b":"G2 Ares","p":0.625,"ev":"European Pro League Series 10","tier":"C","stars":0,"lan":false,"la":"tried StRoGo Ryujin kelieN m3wsu","lb":"TMKj SHiNE Hitori Junyme yksjupe","tm":[["2.5",0.4672]],"trust":"A","why":"","elo":[1615,1480],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/ww-vs-g2-ares-15-11-2026","maps":[["dust2",0.764,0.662],["inferno",0.674,0.476],["mirage",0.602,0.632],["ancient",0.226,0.499],["anubis",0.119,0.624],["cache",0.109,0.541]],"sc":[0.3363,0.2887,0.1785,0.1965],"rt":{"map1":{"exp":21.4,"ot":0.116,"o":{"19.5":0.671,"20.5":0.569,"21.5":0.468,"22.5":0.35,"23.5":0.237}},"map2":{"exp":21.3,"ot":0.114,"o":{"19.5":0.661,"20.5":0.56,"21.5":0.459,"22.5":0.346,"23.5":0.235}}},"kp":[["tried",1,32.3,31.5,0.523],["Ryujin",1,30.0,29.5,0.507],["m3wsu",1,29.6,29.5,0.485],["kelieN",1,28.8,28.5,0.5],["StRoGo",1,25.0,24.5,0.508],["Junyme",2,30.0,29.5,0.506],["TMKj",2,29.3,28.5,0.521],["Hitori",2,28.6,28.5,0.487],["yksjupe",2,25.9,25.5,0.504],["SHiNE",2,24.6,24.5,0.487]],"km":"1-2"},{"match_id":"b133854","t":"2026-11-15T12:00Z","bo":3,"a":"BRUTE","b":"ex-INOX","p":0.5985,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"nbqq aidKiT ZEDKO tAk oontoma","lb":"m1QUSE El1an K0s fin gooddeph","tm":[["2.5",0.456]],"trust":"A","why":"","elo":[1702,1570],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/brute-vs-ex-inox-division-15-11-2026","maps":[["dust2",0.593,0.548],["nuke",0.407,0.519],["inferno",0.396,0.553],["cache",0.389,0.594],["mirage",0.359,0.677],["anubis",0.216,0.603],["ancient",0.132,0.488]],"sc":[0.3378,0.2606,0.1954,0.2061],"rt":{"map1":{"exp":21.6,"ot":0.124,"o":{"19.5":0.684,"20.5":0.584,"21.5":0.481,"22.5":0.37,"23.5":0.249}},"map2":{"exp":21.5,"ot":0.122,"o":{"19.5":0.68,"20.5":0.579,"21.5":0.476,"22.5":0.365,"23.5":0.247}}},"kp":[["aidKiT",1,29.7,29.5,0.493],["tAk",1,28.8,28.5,0.498],["nbqq",1,27.7,27.5,0.489],["ZEDKO",1,27.4,27.5,0.474],["oontoma",1,27.3,26.5,0.529],["K0s",2,28.7,28.5,0.491],["El1an",2,28.5,28.5,0.481],["fin",2,26.9,26.5,0.502],["m1QUSE",2,26.1,25.5,0.513],["gooddeph",2,26.0,25.5,0.507]],"km":"1-2"},{"match_id":"b133390","t":"2026-11-15T12:00Z","bo":3,"a":"Leo","b":"The Last Resort","p":0.6954,"ev":"CCT Europe 2026 Series 14","tier":"B","stars":0,"lan":false,"la":"drac leen next1me Tarkky aimy","lb":"Extinct arTisT Girafffe Vacancy bevve","tm":[["2.5",0.4094]],"trust":"A","why":"","elo":[1528,1441],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/l-g-vs-the-last-resort-15-11-2026","maps":[["nuke",0.668,0.672],["ancient",0.578,0.621],["cache",0.475,0.671],["dust2",0.257,0.735],["anubis",0.232,0.633],["mirage",0.135,0.699],["inferno",0.106,0.515]],"sc":[0.4273,0.2681,0.1414,0.1633],"rt":{"map1":{"exp":21.5,"ot":0.122,"o":{"19.5":0.673,"20.5":0.573,"21.5":0.47,"22.5":0.358,"23.5":0.24}},"map2":{"exp":21.4,"ot":0.119,"o":{"19.5":0.666,"20.5":0.566,"21.5":0.464,"22.5":0.353,"23.5":0.237}}},"kp":[["drac",1,31.3,30.5,0.522],["aimy",1,30.6,30.5,0.487],["Tarkky",1,30.0,29.5,0.505],["next1me",1,29.9,29.5,0.503],["leen",1,29.5,29.5,0.482],["bevve",2,29.5,29.5,0.479],["arTisT",2,28.7,28.5,0.489],["Girafffe",2,27.6,27.5,0.482],["Vacancy",2,27.3,26.5,0.521],["Extinct",2,24.4,23.5,0.528]],"km":"1-2"},{"match_id":"b133768","t":"2026-11-15T12:00Z","bo":3,"a":"PARIVISION","b":"33","p":0.769,"ev":"PGL Cluj-Napoca 2027: Closed Qualifier","tier":"A","stars":1,"lan":false,"la":"zweih Jame xiELO FL1T HObbit","lb":"shg Raijin executor bluewh1te Z1Nny","tm":[["2.5",0.3772]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1970,1706],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/parivision-vs-tpudcatb-tpu-15-11-2026","maps":[["inferno",0.656,0.683],["ancient",0.621,0.731],["dust2",0.56,0.694],["mirage",0.392,0.686],["anubis",0.168,0.668]],"sc":[0.5069,0.2622,0.1151,0.1159],"rt":{"map1":{"exp":21.2,"ot":0.107,"o":{"19.5":0.651,"20.5":0.551,"21.5":0.448,"22.5":0.335,"23.5":0.224}},"map2":{"exp":21.1,"ot":0.105,"o":{"19.5":0.638,"20.5":0.539,"21.5":0.438,"22.5":0.33,"23.5":0.221}}},"kp":[["xiELO",1,31.0,30.5,0.509],["Jame",1,30.5,30.5,0.479],["FL1T",1,29.1,28.5,0.514],["HObbit",1,28.6,28.5,0.486],["zweih",1,28.5,28.5,0.477],["shg",2,27.8,27.5,0.491],["Z1Nny",2,27.7,27.5,0.486],["Raijin",2,26.7,26.5,0.49],["executor",2,26.5,26.5,0.475],["bluewh1te",2,25.5,25.5,0.475]],"km":"1-2"},{"match_id":"b133767","t":"2026-11-15T12:00Z","bo":3,"a":"Eternal Fire","b":"100 Thieves","p":0.4432,"ev":"PGL Cluj-Napoca 2027: Closed Qualifier","tier":"A","stars":2,"lan":false,"la":"MisteM regali soulfly Kvem jottAAA","lb":"dev1ce rain Gizmy sirah poiii","tm":[["2.5",0.4573]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1979,1933],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/eternal-fire-vs-100-thieves-15-11-2026","maps":[["ancient",0.605,0.454],["dust2",0.593,0.427],["mirage",0.442,0.424],["inferno",0.334,0.42],["anubis",0.33,0.458],["nuke",0.118,0.336],["cache",0.07,0.536]],"sc":[0.2457,0.1975,0.2597,0.297],"rt":{"map1":{"exp":21.5,"ot":0.12,"o":{"19.5":0.681,"20.5":0.581,"21.5":0.477,"22.5":0.367,"23.5":0.249}},"map2":{"exp":21.5,"ot":0.121,"o":{"19.5":0.683,"20.5":0.582,"21.5":0.479,"22.5":0.368,"23.5":0.25}}},"kp":[["jottAAA",1,30.1,29.5,0.511],["Kvem",1,29.6,29.5,0.483],["regali",1,28.4,28.5,0.473],["soulfly",1,27.5,27.5,0.478],["MisteM",1,25.2,24.5,0.521],["poiii",2,31.4,30.5,0.526],["dev1ce",2,30.8,30.5,0.497],["rain",2,28.8,28.5,0.497],["sirah",2,28.3,27.5,0.526],["Gizmy",2,26.3,26.5,0.471]],"km":"1-2"},{"match_id":"h2400428","t":"2026-11-15T14:00Z","bo":3,"a":"XEPT","b":"Coinstep","p":0.3986,"ev":"Svenska Cupen 2026 Closed Qualifier","tier":"C","stars":0,"lan":false,"la":"Valtr1x Olleja Gibsand Collinn davidxd","lb":"PALM1 Realyummy Majkn TiiREX Cocaz","tm":[["2.5",0.4539]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1277,1326],"rank":[null,null],"src":"hltv","url":"https://www.hltv.org/matches/2400428/xept-vs-coinstep-svenska-cupen-2026-closed-qualifier","maps":[["ancient",0.489,0.426],["inferno",0.428,0.438],["mirage",0.414,0.483],["dust2",0.399,0.376],["nuke",0.276,0.39],["cache",0.244,0.422],["anubis",0.238,0.428]],"sc":[0.2054,0.1932,0.2608,0.3407],"rt":{"map1":{"exp":21.5,"ot":0.122,"o":{"19.5":0.681,"20.5":0.578,"21.5":0.477,"22.5":0.36,"23.5":0.245}},"map2":{"exp":21.5,"ot":0.122,"o":{"19.5":0.682,"20.5":0.578,"21.5":0.477,"22.5":0.36,"23.5":0.246}}},"kp":[["Olleja",1,33.3,32.5,0.521],["Valtr1x",1,29.0,28.5,0.505],["Collinn",1,28.2,27.5,0.515],["Gibsand",1,26.2,25.5,0.519],["davidxd",1,21.1,20.5,0.517],["PALM1",2,31.0,30.5,0.509],["TiiREX",2,30.0,29.5,0.509],["Majkn",2,30.0,29.5,0.508],["Realyummy",2,29.7,29.5,0.492],["Cocaz",2,26.2,25.5,0.519]],"km":"1-2"},{"match_id":"b133391","t":"2026-11-15T15:00Z","bo":3,"a":"FORZE Reload","b":"Nexus","p":0.5932,"ev":"CCT Europe 2026 Series 14","tier":"A","stars":1,"lan":false,"la":"YumsaN HeCkBNk KusMe Lack1 bl1x1","lb":"fNk s0und shield Nexius HOLY","tm":[["2.5",0.4622]],"trust":"A","why":"","elo":[1748,1684],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/forze-reload-vs-nexus-15-11-2026","maps":[["anubis",0.679,0.502],["cache",0.497,0.595],["ancient",0.482,0.555],["dust2",0.423,0.58],["mirage",0.322,0.561],["nuke",0.071,0.678]],"sc":[0.3285,0.2647,0.1975,0.2093],"rt":{"map1":{"exp":21.6,"ot":0.126,"o":{"19.5":0.688,"20.5":0.583,"21.5":0.483,"22.5":0.374,"23.5":0.258}},"map2":{"exp":21.6,"ot":0.127,"o":{"19.5":0.689,"20.5":0.584,"21.5":0.483,"22.5":0.373,"23.5":0.256}}},"kp":[["HeCkBNk",1,31.1,30.5,0.512],["YumsaN",1,30.5,30.5,0.479],["bl1x1",1,29.3,28.5,0.524],["Lack1",1,28.6,28.5,0.487],["KusMe",1,28.0,27.5,0.511],["shield",2,29.2,28.5,0.515],["Nexius",2,28.9,28.5,0.501],["s0und",2,28.7,28.5,0.489],["HOLY",2,28.4,28.5,0.475],["fNk",2,27.7,27.5,0.492]],"km":"1-2"},{"match_id":"b133855","t":"2026-11-15T15:00Z","bo":3,"a":"Butterfly","b":"BAKS","p":0.4502,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"nitzie Kuruma ayano Forester Krad","lb":"Norwi glowiing whisper danistzz turbo","tm":[["2.5",0.4648]],"trust":"A","why":"","elo":[1699,1659],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/butterfly-vs-baks-esports-15-11-2026","maps":[["nuke",0.596,0.517],["ancient",0.548,0.463],["dust2",0.416,0.509],["inferno",0.34,0.426],["cache",0.297,0.348],["mirage",0.293,0.455]],"sc":[0.2271,0.2231,0.2417,0.3081],"rt":{"map1":{"exp":21.6,"ot":0.124,"o":{"19.5":0.685,"20.5":0.585,"21.5":0.482,"22.5":0.37,"23.5":0.248}},"map2":{"exp":21.6,"ot":0.126,"o":{"19.5":0.687,"20.5":0.586,"21.5":0.483,"22.5":0.371,"23.5":0.25}}},"kp":[["nitzie",1,31.1,30.5,0.513],["Kuruma",1,28.6,28.5,0.485],["Krad",1,28.6,28.5,0.483],["Forester",1,27.8,27.5,0.497],["ayano",1,26.2,25.5,0.518],["glowiing",2,30.1,29.5,0.513],["danistzz",2,29.8,29.5,0.498],["whisper",2,29.7,29.5,0.489],["Norwi",2,28.4,28.5,0.476],["turbo",2,28.2,27.5,0.522]],"km":"1-2"},{"match_id":"b132515","t":"2026-11-15T16:00Z","bo":1,"a":"OLDBOYS PL","b":"Fire Flux","p":0.4537,"ev":"ESEA Season 59: Advanced Division - Europe","tier":"C","stars":0,"lan":false,"la":"rallen MICHU ToM223 Goofy hades","lb":"Cizzx Quality xEternaLxx zemix zer0UKY","tm":[],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1584,1544],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/oldboys-pl-vs-fire-flux-15-11-2026","maps":[["cache",0.398,0.456],["dust2",0.174,0.363],["mirage",0.172,0.465],["anubis",0.166,0.386],["ancient",0.065,0.577]],"sc":[],"rt":{"map1":{"exp":21.6,"ot":0.129,"o":{"19.5":0.686,"20.5":0.577,"21.5":0.478,"22.5":0.363,"23.5":0.251}},"map2":{"exp":21.6,"ot":0.129,"o":{"19.5":0.686,"20.5":0.577,"21.5":0.478,"22.5":0.363,"23.5":0.251}}},"kp":[["rallen",1,15.4,15.5,0.468],["ToM223",1,14.8,14.5,0.492],["hades",1,14.4,14.5,0.467],["MICHU",1,14.3,13.5,0.533],["Goofy",1,13.1,12.5,0.522],["Quality",2,15.7,15.5,0.489],["xEternaLxx",2,15.4,15.5,0.469],["zemix",2,14.2,13.5,0.526],["zer0UKY",2,14.0,13.5,0.513],["Cizzx",2,13.5,13.5,0.47]],"km":"1"},{"match_id":"b133851","t":"2026-11-15T18:00Z","bo":3,"a":"Aces","b":"Illyrians","p":0.626,"ev":"NODWIN Clutch Series 14","tier":"B","stars":0,"lan":false,"la":"karnez topo- 4X1s MRcreed salazar","lb":"BledarD ammar cerber Lewis rosoneriii","tm":[["2.5",0.45]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1714,1591],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/team-aces-vs-illyrians-15-11-2026","maps":[["dust2",0.689,0.648],["mirage",0.623,0.545],["cache",0.387,0.542],["inferno",0.289,0.611],["anubis",0.287,0.597],["ancient",0.148,0.5],["nuke",0.064,0.719]],"sc":[0.3615,0.2646,0.1854,0.1886],"rt":{"map1":{"exp":21.5,"ot":0.119,"o":{"19.5":0.677,"20.5":0.574,"21.5":0.471,"22.5":0.361,"23.5":0.246}},"map2":{"exp":21.5,"ot":0.121,"o":{"19.5":0.679,"20.5":0.576,"21.5":0.474,"22.5":0.363,"23.5":0.247}}},"kp":[["topo-",1,32.6,32.5,0.485],["karnez",1,31.8,31.5,0.495],["MRcreed",1,29.2,28.5,0.518],["4X1s",1,29.0,28.5,0.51],["salazar",1,27.5,27.5,0.482],["cerber",2,29.7,29.5,0.49],["Lewis",2,29.4,29.5,0.475],["BledarD",2,29.1,28.5,0.509],["ammar",2,28.4,27.5,0.526],["rosoneriii",2,26.0,25.5,0.505]],"km":"1-2"},{"match_id":"b133256","t":"2026-11-15T18:00Z","bo":3,"a":"Metizport","b":"Aces","p":0.5314,"ev":"CCT Europe 2026 Series 13","tier":"B","stars":0,"lan":false,"la":"Plopski F1KU stanislaw MaiL09 forsyy","lb":"karnez topo- 4X1s MRcreed salazar","tm":[["2.5",0.4689]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1767,1714],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/metizport-vs-team-aces-15-11-2026","maps":[["nuke",0.529,0.549],["inferno",0.479,0.561],["mirage",0.444,0.486],["cache",0.381,0.493],["anubis",0.311,0.507],["ancient",0.212,0.611],["dust2",0.146,0.301]],"sc":[0.2874,0.244,0.2248,0.2438],"rt":{"map1":{"exp":21.6,"ot":0.125,"o":{"19.5":0.688,"20.5":0.585,"21.5":0.482,"22.5":0.37,"23.5":0.25}},"map2":{"exp":21.6,"ot":0.125,"o":{"19.5":0.689,"20.5":0.588,"21.5":0.485,"22.5":0.371,"23.5":0.249}}},"kp":[["forsyy",1,30.5,30.5,0.478],["Plopski",1,29.6,29.5,0.488],["F1KU",1,29.5,29.5,0.479],["MaiL09",1,28.6,28.5,0.486],["stanislaw",1,25.7,25.5,0.49],["topo-",2,31.1,30.5,0.509],["karnez",2,30.4,30.5,0.477],["MRcreed",2,28.0,27.5,0.508],["4X1s",2,27.8,27.5,0.496],["salazar",2,26.4,26.5,0.473]],"km":"1-2"},{"match_id":"b134218","t":"2026-11-15T21:00Z","bo":3,"a":"RED Canids Academy","b":"Los Ni\u00f1os","p":0.7611,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"gtw sanc FasteR rafa nickssz","lb":"Reix PremiuM ANgelo protado space","tm":[["2.5",0.3642]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1534,1384],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/red-canids-academy-vs-los-ninos-15-11-2026","maps":[["mirage",0.533,0.761],["dust2",0.495,0.749],["inferno",0.465,0.629],["ancient",0.457,0.716],["cache",0.212,0.762],["anubis",0.152,0.705],["nuke",0.096,0.65]],"sc":[0.4944,0.2667,0.0975,0.1414],"rt":{"map1":{"exp":21.1,"ot":0.107,"o":{"19.5":0.638,"20.5":0.535,"21.5":0.435,"22.5":0.322,"23.5":0.217}},"map2":{"exp":21.0,"ot":0.102,"o":{"19.5":0.625,"20.5":0.52,"21.5":0.421,"22.5":0.311,"23.5":0.209}}},"kp":[["gtw",1,33.8,33.5,0.497],["FasteR",1,32.3,31.5,0.525],["nickssz",1,28.9,28.5,0.502],["sanc",1,27.5,27.5,0.481],["rafa",1,26.1,25.5,0.518],["ANgelo",2,26.0,25.5,0.503],["PremiuM",2,25.4,25.5,0.473],["protado",2,25.1,24.5,0.51],["space",2,25.1,24.5,0.509],["Reix",2,24.8,24.5,0.492]],"km":"1-2"},{"match_id":"b134219","t":"2026-11-15T21:00Z","bo":3,"a":"AXORFY","b":"9z Academy","p":0.7365,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"drg ALLE ruan pablo ckzao lash","lb":"? neozix lezy RW zock9","tm":[["2.5",0.4007]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1396,1208],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/axorfy-gaming-vs-9z-academy-15-11-2026","maps":[["ancient",0.452,0.713],["mirage",0.43,0.656],["nuke",0.419,0.708],["anubis",0.379,0.624],["inferno",0.375,0.628],["cache",0.292,0.673],["dust2",0.096,0.708]],"sc":[0.4684,0.2681,0.1325,0.131],"rt":{"map1":{"exp":21.4,"ot":0.116,"o":{"19.5":0.668,"20.5":0.563,"21.5":0.462,"22.5":0.344,"23.5":0.235}},"map2":{"exp":21.3,"ot":0.116,"o":{"19.5":0.659,"20.5":0.556,"21.5":0.456,"22.5":0.339,"23.5":0.229}}},"kp":[["ckzao",1,32.0,31.5,0.506],["lash",1,30.6,30.5,0.485],["drg",1,29.6,29.5,0.488],["ruan pablo",1,29.1,28.5,0.517],["ALLE",1,26.8,26.5,0.495],["?",2,28.1,27.5,0.51],["zock9",2,26.8,26.5,0.494],["lezy",2,26.6,26.5,0.484],["neozix",2,25.8,25.5,0.494],["RW",2,23.1,22.5,0.511]],"km":"1-2"},{"match_id":"b134220","t":"2026-11-15T23:45Z","bo":3,"a":"QUINTESS\u00caNCIA","b":"DISFAR\u00c7ADOS","p":0.8398,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"edv n0page prozinszsz cz1k4 lipshawty","lb":"beg0d leleo terran coxa charlatao","tm":[["2.5",0.3118]],"trust":"B","why":"lineups not announced; using each team's last lineup; roster from bo3.gg for DISFAR\u00c7ADOS","elo":[1423,1077],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/quintessencia-vs-disfarcados-15-11-2026","maps":[["cache",0.522,0.785],["dust2",0.437,0.776],["ancient",0.405,0.775],["mirage",0.384,0.756],["inferno",0.288,0.727],["anubis",0.231,0.731],["nuke",0.097,0.697]],"sc":[0.6029,0.237,0.0748,0.0854],"rt":{"map1":{"exp":20.9,"ot":0.1,"o":{"19.5":0.61,"20.5":0.504,"21.5":0.408,"22.5":0.301,"23.5":0.202}},"map2":{"exp":20.8,"ot":0.1,"o":{"19.5":0.602,"20.5":0.493,"21.5":0.398,"22.5":0.294,"23.5":0.197}}},"kp":[["edv",1,31.9,31.5,0.502],["prozinszsz",1,30.4,30.5,0.474],["lipshawty",1,29.8,29.5,0.495],["cz1k4",1,29.4,29.5,0.475],["n0page",1,24.5,24.5,0.479],["terran",2,25.8,25.5,0.489],["charlatao",2,25.2,24.5,0.511],["beg0d",2,23.9,23.5,0.497],["coxa",2,23.4,22.5,0.527],["leleo",2,23.2,22.5,0.512]],"km":"1-2"},{"match_id":"b134221","t":"2026-11-15T23:45Z","bo":3,"a":"BORRACHEIROS","b":"Mira","p":0.3767,"ev":"CCT South America 2026 Challengers 4","tier":"C","stars":0,"lan":false,"la":"zock9 flash trindade k9izer Luffykcs","lb":"felps t9rnay fokiu bacc reN7U","tm":[["2.5",0.4485]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1414,1521],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/borracheiros-vs-mira-br-15-11-2026","maps":[["ancient",0.609,0.435],["dust2",0.569,0.362],["mirage",0.526,0.406],["anubis",0.301,0.465],["nuke",0.273,0.369],["inferno",0.148,0.476],["cache",0.06,0.406]],"sc":[0.189,0.1876,0.2609,0.3624],"rt":{"map1":{"exp":21.5,"ot":0.12,"o":{"19.5":0.677,"20.5":0.574,"21.5":0.473,"22.5":0.357,"23.5":0.244}},"map2":{"exp":21.5,"ot":0.12,"o":{"19.5":0.676,"20.5":0.574,"21.5":0.473,"22.5":0.357,"23.5":0.244}}},"kp":[["flash",1,28.7,28.5,0.488],["trindade",1,28.6,28.5,0.484],["zock9",1,27.8,27.5,0.497],["k9izer",1,26.9,26.5,0.504],["Luffykcs",1,26.3,25.5,0.523],["felps",2,32.1,31.5,0.514],["t9rnay",2,30.5,30.5,0.479],["reN7U",2,29.7,29.5,0.491],["fokiu",2,28.9,28.5,0.505],["bacc",2,28.7,28.5,0.49]],"km":"1-2"},{"match_id":"b133936","t":"2026-11-16T09:00Z","bo":3,"a":"Betclic","b":"MAYBE","p":0.8666,"ev":"European Pro League Series 10","tier":"C","stars":0,"lan":false,"la":"ultimate Prism Qlocuu Ex1st Demho","lb":"thirtythird m4d4ra Awi4 mooncat shallthing","tm":[["2.5",0.2708]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1825,1465],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/betclic-apogee-esports-vs-maybe-ukr-16-11-2026","maps":[["mirage",0.602,0.736],["anubis",0.47,0.84],["ancient",0.379,0.786],["nuke",0.369,0.861],["cache",0.312,0.792],["dust2",0.177,0.806]],"sc":[0.6493,0.2173,0.0535,0.0799],"rt":{"map1":{"exp":20.7,"ot":0.093,"o":{"19.5":0.593,"20.5":0.483,"21.5":0.386,"22.5":0.283,"23.5":0.19}},"map2":{"exp":20.2,"ot":0.084,"o":{"19.5":0.538,"20.5":0.43,"21.5":0.342,"22.5":0.252,"23.5":0.165}}},"kp":[["ultimate",1,32.2,31.5,0.52],["Ex1st",1,30.9,30.5,0.503],["Prism",1,29.9,29.5,0.506],["Qlocuu",1,28.9,28.5,0.506],["Demho",1,28.4,28.5,0.474],["m4d4ra",2,27.8,27.5,0.485],["thirtythird",2,26.4,25.5,0.516],["shallthing",2,25.4,24.5,0.518],["mooncat",2,24.0,23.5,0.499],["Awi4",2,23.3,22.5,0.515]],"km":"1-2"},{"match_id":"b133937","t":"2026-11-16T11:30Z","bo":3,"a":"ex-INOX","b":"benched gods","p":0.791,"ev":"European Pro League Series 10","tier":"C","stars":0,"lan":false,"la":"K0s fin m1QUSE gooddeph El1an","lb":"yoyoS2 Wign facer f1chper K014NZ","tm":[["2.5",0.3484]],"trust":"B","why":"lineups not announced; using each team's last lineup","elo":[1570,1397],"rank":[null,null],"src":"bo3","url":"https://bo3.gg/matches/ex-inox-division-vs-benched-gods-16-11-2026","maps":[["cache",0.694,0.67],["dust2",0.518,0.807],["ancient",0.337,0.756],["inferno",0.314,0.797],["mirage",0.282,0.704],["anubis",0.222,0.685]],"sc":[0.5269,0.264,0.0844,0.1246],"rt":{"map1":{"exp":21.1,"ot":0.115,"o":{"19.5":0.64,"20.5":0.531,"21.5":0.435,"22.5":0.325,"23.5":0.222}},"map2":{"exp":20.8,"ot":0.099,"o":{"19.5":0.598,"20.5":0.494,"21.5":0.399,"22.5":0.296,"23.5":0.198}}},"kp":[["K0s",1,30.6,30.5,0.487],["El1an",1,30.5,30.5,0.48],["fin",1,28.7,28.5,0.493],["m1QUSE",1,27.8,27.5,0.5],["gooddeph",1,27.8,27.5,0.495],["Wign",2,29.4,28.5,0.521],["yoyoS2",2,26.9,26.5,0.496],["f1chper",2,24.5,24.5,0.472],["facer",2,23.6,23.5,0.48],["K014NZ",2,22.2,21.5,0.516]],"km":"1-2"}],"changelog":[{"at":1794248200,"version":2,"promoted":false,"note":"kept champion","champion_logloss":0.6486497757009017,"best_logloss":0.6482178019977453,"eval_n":4244,"tried":[{"change":"k_player=20.4, mov_weight=0.25","logloss":0.6484497369274599},{"change":"ewma_halflife_maps=15.0, mov_weight=0.25","logloss":0.6484497369274599},{"change":"k_map=35.0, blend=0.3","logloss":0.6500710848269983},{"change":"lgb.min_child_samples=80, k_map=35.0","logloss":0.6485640736954651},{"change":"lgb.n_estimators=250, init_team=1400.0","logloss":0.6482178019977453},{"change":"lgb.n_estimators=700, lgb.min_child_samples=40","logloss":0.6489589943979805}]},{"at":1794335645,"version":3,"promoted":true,"note":"promoted: rating-uncertainty, schedule-strength and event-level features; thin-data calibration; tier-based start for new teams; recency=180, stat_prior_maps=12.0","champion_logloss":0.6093,"best_logloss":0.6077,"eval_n":5652,"tried":[{"change":"start (new features)","logloss":0.6086},{"change":"k_tier=0.0, lgb.lambda_l2=20.0","logloss":0.6085},{"change":"lgb.n_estimators=400, lgb.min_child_samples=160","logloss":0.6084},{"change":"lgb.num_leaves=15, inactivity_days=30.0","logloss":0.6092},{"change":"recency=180, stat_prior_maps=12.0","logloss":0.6077},{"change":"recency=180, k_team_new=100.0","logloss":0.608},{"change":"lgb.n_estimators=400, lgb.learning_rate=0.05","logloss":0.6086},{"change":"k_team_new=60.0, lgb.min_child_samples=40","logloss":0.6085},{"change":"lgb.learning_rate=0.03, lgb.num_leaves=31","logloss":0.6083},{"change":"init_team=1300.0, mov_weight=0.25","logloss":0.6089},{"change":"rd_halflife_maps=6.0, lgb.min_child_samples=40","logloss":0.6086},{"change":"k_tier=0.0, rd_grow_day=2.0","logloss":0.6087},{"change":"ewma_halflife_maps=37.5, lgb.n_estimators=700","logloss":0.6084},{"change":"regress=0.05, rd_grow_day=2.0","logloss":0.6088},{"change":"init_team=1400.0, recency=730","logloss":0.6082},{"change":"k_map=21.0, lgb.feature_fraction=0.6","logloss":0.6084},{"change":"k_map=35.0, rd_halflife_maps=9.0","logloss":0.6087},{"change":"init_team=1400.0, lgb.min_child_samples=80","logloss":0.6087},{"change":"mov_weight=0.25, k_map=21.0","logloss":0.6087},{"change":"lgb.learning_rate=0.05, k_tier=0.0","logloss":0.6086},{"change":"lgb.feature_fraction=0.6, stat_prior_maps=12.0","logloss":0.6084},{"change":"init_team=1300.0, blend=0.7","logloss":0.6091},{"change":"rd_match=154.0, k_team_new=100.0","logloss":0.6083},{"change":"init_team=1300.0, rd_match=308.0","logloss":0.6087},{"change":"k_team=46.0, k_tier=0.2","logloss":0.6087},{"change":"ewma_halflife_maps=37.5, cal=platt","logloss":0.6085},{"change":"k_player=33.6, k_team=30.0","logloss":0.6092},{"change":"mov_weight=0.75, k_map=21.0","logloss":0.6084},{"change":"lgb.num_leaves=7, k_team=34.0","logloss":0.6089},{"change":"lgb.learning_rate=0.05, k_team_new=60.0","logloss":0.6086},{"change":"lgb.num_leaves=31, rd_grow_day=2.0","logloss":0.6083}]},{"at":1794379738,"version":4,"promoted":true,"note":"v4: learns from the lineups that actually played (scored only on the guessed lineup), listing order, team over-2.5 rates, calibration on guessed-lineup rows, 3 averaged LightGBMs","champion_logloss":0.6127,"best_logloss":0.6075,"eval_n":5672,"tried":[{"change":"v3 on the same data","logloss":0.6127},{"change":"+ listing order","logloss":0.6126},{"change":"+ learn from actual lineups","logloss":0.6077},{"change":"both (v4)","logloss":0.6075},{"change":"v4 + tier-2 / bo3-only calibration terms","logloss":0.6082},{"change":"v4 + 3 averaged LightGBMs","logloss":0.6075}]},{"at":1794381942,"version":5,"promoted":true,"note":"v4: learns from the lineups that actually played (scored only on the guessed lineup), listing order, team over-2.5 rates, calibration on guessed-lineup rows, 3 averaged LightGBMs; simulated map veto (v5)","champion_logloss":0.60685,"best_logloss":0.6067,"eval_n":5673,"tried":[{"change":"v4 (2 seeds)","logloss":0.60685},{"change":"+ simulated map veto","logloss":0.6067},{"change":"+ veto in over-2.5 too","logloss":0.6067},{"change":"opponent-adjusted player stats x1.0","logloss":0.60735},{"change":"opponent-adjusted player stats x0.5","logloss":0.6071}]},{"at":1794423450,"version":6,"promoted":false,"note":"kept champion","champion_logloss":0.6077550077326618,"best_logloss":0.6073018115000355,"champion_selection":0.6045061855626305,"champion_confirmation":0.6175381064870974,"best_selection":0.6037223972212743,"best_confirmation":0.6180804141872421,"eval_n":5692,"tried":[{"change":"init_tier_step=25.0, rd_grow_day=8.0","logloss":0.6075160164768664,"selection":0.6041782547379847,"confirmation":0.6175669367800667},{"change":"k_map=21.0, init_team=1400.0","logloss":0.60769704323143,"selection":0.604353468700645,"confirmation":0.6177654674527441},{"change":"blend=0.7, k_map_spec=8.4","logloss":0.6075093065106746,"selection":0.6038761353798926,"confirmation":0.6184497858918102},{"change":"stat_prior_maps=24.0, lgb.n_estimators=400","logloss":0.607707260687704,"selection":0.6043795095842988,"confirmation":0.6177280362090931},{"change":"rd_grow_day=8.0, k_team=46.0","logloss":0.6076575790257854,"selection":0.6044116722827273,"confirmation":0.6174318986262696},{"change":"cal=platt, inactivity_days=90.0","logloss":0.6080864638405841,"selection":0.6050491517629437,"confirmation":0.6172326474260369},{"change":"regress=0.25, init_team=1300.0","logloss":0.6080181009107903,"selection":0.6047602163561625,"confirmation":0.6178284890023513},{"change":"regress=0.05, stat_opp_adj=0.5","logloss":0.6080297718048405,"selection":0.6046706345316332,"confirmation":0.6181450597318419},{"change":"inactivity_days=90.0, regress=0.05","logloss":0.6076471394549141,"selection":0.6043849722677979,"confirmation":0.6174704237329601},{"change":"cal=platt, lgb.feature_fraction=0.6","logloss":0.6082310639518487,"selection":0.6051079367435199,"confirmation":0.6176356605418334},{"change":"blend=0.3, stat_prior_maps=24.0","logloss":0.6082534558710322,"selection":0.6051708511170686,"confirmation":0.6175360281851167},{"change":"lgb.min_child_samples=80, k_player=33.6","logloss":0.6080371259694258,"selection":0.6046100204605604,"confirmation":0.61835708498238},{"change":"init_tier_step=75.0, stat_opp_adj=0.0","logloss":0.6077727160601716,"selection":0.6045043212554385,"confirmation":0.6176147534108581},{"change":"inactivity_days=30.0, rd_match=154.0","logloss":0.6085243567160789,"selection":0.6050376012958028,"confirmation":0.6190239380485947},{"change":"ewma_halflife_maps=37.5, stat_prior_maps=24.0","logloss":0.6075271239958293,"selection":0.6037585998118618,"confirmation":0.6188751887161207},{"change":"rd_halflife_maps=24.0, inactivity_days=90.0","logloss":0.6073018115000355,"selection":0.6037223972212743,"confirmation":0.6180804141872421},{"change":"cal=platt, rd_grow_day=8.0","logloss":0.6077542888309542,"selection":0.6045859540564442,"confirmation":0.617295017859482},{"change":"k_tier=0.0, k_team=46.0","logloss":0.6080375164172386,"selection":0.6047587188505404,"confirmation":0.6179108793506433},{"change":"mov_weight=0.75, k_map_spec=21.0","logloss":0.6077767983546055,"selection":0.6046631925409489,"confirmation":0.6171527234016488},{"change":"lgb.lambda_l2=20.0, rd_halflife_maps=6.0","logloss":0.60788645824527,"selection":0.6050453471156324,"confirmation":0.6164418267138686}]},{"at":1794495747,"version":7,"promoted":true,"note":"v7: knows whether each match is on LAN or online (bo3.gg tournament label; was unknown for ~99% of matches). Weekly no-hindsight backtest since 2025-06, 21,778 matches: log loss -0.0004 (95% -0.0005..-0.0002), LAN -0.0011, last 30 days -0.0006; top-tier/3-star matches +0.0005 (cost)","backtest_old":0.609,"backtest_new":0.6087,"eval_n":21778},{"at":1794629396,"version":8,"promoted":true,"note":"v8: uses the friend's raw data export (read-only, Google Drive): HLTV's lineups as listed before kickoff (from 2026-10-24) and HLTV per-map stats where bo3.gg has none. No-hindsight weekly backtest since 2026-09 (lineup must be seen 1 h before start): 701 Kalshi-priced matches -0.0045 log loss (95% -0.0097..-0.0004); matches with a pre-match five -0.0087; HLTV stats alone -0.0007 (n.s.)","kalshi_old":0.6432,"kalshi_new":0.6388,"eval_n":701},{"at":1794635030,"version":9,"promoted":true,"note":"v9: adds ~16,000 matches only Liquipedia has (friend's export; mostly smaller teams), with duplicates of bo3.gg matches removed by team ids and by team names. No-hindsight weekly backtest since 2025-06, same 22,561 matches: selection (to 2026-09-30) -0.0037 (95% -0.0053..-0.0022), confirmation (Oct-Nov) -0.0049 (-0.0088..-0.0006); with every Liquipedia time pushed 12 h later -0.0027 / -0.0045; tier 4 about -0.006. Kalshi-priced 1,084: -0.0036 (n.s.). Rejected the same night: veto habits, round economy, FACEIT form (hindsight risk)","sel_old":0.60697,"sel_new":0.60325,"conf_old":0.6076,"conf_new":0.60269,"kalshi_old":0.6262,"kalshi_new":0.6226,"eval_n":22561},{"at":1794637419,"version":10,"promoted":false,"note":"kept champion","champion_logloss":0.6062354344981348,"best_logloss":0.6057998603244861,"champion_selection":0.6039655681671618,"champion_confirmation":0.6139091075333687,"best_selection":0.6035435677860521,"best_confirmation":0.613427644822421,"eval_n":7434,"tried":[{"change":"k_player=20.4, lgb.min_child_samples=80","logloss":0.6062001022412616,"selection":0.6040389041533732,"confirmation":0.6135064036144},{"change":"cal=platt, stat_opp_adj=1.0","logloss":0.6064422465094529,"selection":0.6042066178792425,"confirmation":0.6140001731161221},{"change":"k_team=34.0, inactivity_days=90.0","logloss":0.6062934753985876,"selection":0.6040087292511848,"confirmation":0.614017452209224},{"change":"k_map_spec=8.4, lgb.num_leaves=7","logloss":0.6066073098480942,"selection":0.6044153190877116,"confirmation":0.6140177111399713},{"change":"lgb.lambda_l2=1.0, ewma_halflife_maps=15.0","logloss":0.6069337058797365,"selection":0.604600199211615,"confirmation":0.6148225260064384},{"change":"k_map=35.0, ewma_halflife_maps=15.0","logloss":0.6067838806503603,"selection":0.6045759986359897,"confirmation":0.6142480050560425},{"change":"regress=0.25, lgb.feature_fraction=0.6","logloss":0.606487817040816,"selection":0.6043468953239112,"confirmation":0.613725570658897},{"change":"ewma_halflife_maps=37.5, lgb.learning_rate=0.02","logloss":0.6061745967566028,"selection":0.603838013766628,"confirmation":0.6140738169177605},{"change":"k_team_new=60.0, k_team=30.0","logloss":0.6062272616831968,"selection":0.6037397295503737,"confirmation":0.6146367913508488},{"change":"stat_opp_adj=1.0, cal=platt","logloss":0.6064422465094529,"selection":0.6042066178792425,"confirmation":0.6140001731161221},{"change":"lgb.n_estimators=250, k_team=30.0","logloss":0.6065596294364631,"selection":0.6042271023142087,"confirmation":0.6144451380401011},{"change":"k_player=27.6, init_team=1400.0","logloss":0.6062442417798751,"selection":0.6040116023109405,"confirmation":0.613792063013391},{"change":"k_team=46.0, ewma_halflife_maps=37.5","logloss":0.6057998603244861,"selection":0.6035435677860521,"confirmation":0.613427644822421},{"change":"lgb.min_child_samples=80, ewma_halflife_maps=15.0","logloss":0.6068441369436973,"selection":0.6045336100650839,"confirmation":0.6146552699446433},{"change":"lgb.num_leaves=31, k_tier=0.0","logloss":0.6061211708842789,"selection":0.603843891396451,"confirmation":0.6138199053696461},{"change":"k_team_new=60.0, recency=180","logloss":0.6063269792864446,"selection":0.6039844444930782,"confirmation":0.6142463205413313},{"change":"regress=0.05, k_tier=0.4","logloss":0.6061554268875913,"selection":0.6037278383866023,"confirmation":0.6143623068110884},{"change":"rd_grow_day=2.0, stat_prior_maps=6.0","logloss":0.6066436908229649,"selection":0.6043431428988277,"confirmation":0.614421088254182},{"change":"rd_match=308.0, k_team=34.0","logloss":0.6061689029331825,"selection":0.6039874956797273,"confirmation":0.6135435248619223},{"change":"k_team=46.0, rd_grow_day=8.0","logloss":0.606097683591994,"selection":0.6039037979461961,"confirmation":0.6135144908695094}]},{"at":1794662430,"version":11,"promoted":true,"note":"v11: map-by-map model. Prices every map in the pool (round-share, CT/T and per-player map ratings, map experience of team and five, per-map player form, round habits, veto habits; new or renamed teams start from their players), predicts the veto (all 5,040 orders), rolls up to the series and blends with the series model. No-hindsight backtest vs v10 on the same matches: selection (2025-06..2026-09) -0.0040 (95% -0.0052..-0.0029, 14-day refits), confirmation (Oct-Nov) -0.0019, Kalshi-priced 1,084: -0.0027; with new-team inheritance (monthly refits) -0.0047 / -0.0026 / -0.0032. Bot matches: 0.6134 vs friend 0.6143 vs market 0.6002. Rejected: pick context, bo3.gg pre-match five as a new-team hint, lineup nationality mix.","sel_old":0.60692,"sel_new":0.6029,"conf_old":0.60344,"conf_new":0.60159,"kalshi_old":0.6226,"kalshi_new":0.6198,"eval_n":26803},{"at":1794666031,"version":11.1,"promoted":true,"note":"v11.1: props from the map model. Round totals, handicap and overtime per map (score model on top of the map-win number: 62,622 maps backtested month by month, over/under lines calibrated to within 0.1 pt, 26-outcome log loss 3.038 vs 3.058 baseline) and player kills over maps 1-2 (383,234 player-maps: log-likelihood 3.09 vs 3.29 for the player-rate baseline, over/under at the model's line 46.1% predicted vs 46.6% actual). Match-winner model unchanged."}],"status":{"matches":18264,"with_players":1,"first":1742657960,"last":1794556800,"results_backfill_done":false,"paused_until":1794709814.8832712,"bo3":{"matches":55874,"first":"2022-12-30","last":"2026-11-14","parsed":32264,"with_stats":32228,"list_done":true,"upcoming":214},"merged":{"matches":72774,"with_players":34388,"linked":16338,"bo3_only":39286}},"teams":[{"team":"MOUZ","elo":2246,"n":300,"form":"WLWWL","mom":48},{"team":"FURIA","elo":2218,"n":329,"form":"LLWWW","mom":131},{"team":"Vitality","elo":2206,"n":282,"form":"LLWLL","mom":-101},{"team":"Spirit","elo":2161,"n":305,"form":"LLWWW","mom":17},{"team":"Natus Vincere","elo":2127,"n":271,"form":"WWWLW","mom":94},{"team":"Falcons","elo":2104,"n":311,"form":"LLWWL","mom":-92},{"team":"The MongolZ","elo":2089,"n":343,"form":"WWWWL","mom":154},{"team":"Nemiga","elo":2086,"n":493,"form":"WWWWL","mom":71},{"team":"BetBoom","elo":2085,"n":366,"form":"WWWLL","mom":130},{"team":"FUT","elo":2065,"n":133,"form":"WWLLL","mom":6},{"team":"Aurora","elo":2064,"n":495,"form":"WLLWL","mom":-58},{"team":"Ninjas in Pyjamas","elo":1982,"n":374,"form":"LLWWW","mom":59},{"team":"Eternal Fire","elo":1979,"n":468,"form":"WWWWW","mom":143},{"team":"1win","elo":1973,"n":516,"form":"WWLWW","mom":31},{"team":"PARIVISION","elo":1970,"n":345,"form":"LWWLL","mom":28},{"team":"Astralis","elo":1956,"n":303,"form":"LLWWL","mom":-56},{"team":"FlyQuest","elo":1955,"n":184,"form":"WWWWW","mom":42},{"team":"HEROIC","elo":1951,"n":335,"form":"WLWLL","mom":-51},{"team":"100 Thieves","elo":1933,"n":101,"form":"WWWWW","mom":35},{"team":"MIBR","elo":1932,"n":393,"form":"LWWLL","mom":5},{"team":"HOTU","elo":1924,"n":435,"form":"WWWWL","mom":65},{"team":"Liquid","elo":1919,"n":300,"form":"LWLWL","mom":6},{"team":"G2","elo":1919,"n":308,"form":"LLWLL","mom":-92},{"team":"fnatic","elo":1918,"n":414,"form":"LWWWL","mom":13},{"team":"Lynn Vision","elo":1908,"n":369,"form":"WWWWW","mom":50},{"team":"FaZe","elo":1902,"n":322,"form":"WLWLL","mom":-20},{"team":"Virtus.pro","elo":1900,"n":254,"form":"WWWLW","mom":80},{"team":"Legacy","elo":1899,"n":351,"form":"LLLLL","mom":-188},{"team":"Imperial","elo":1895,"n":450,"form":"WWWWL","mom":44},{"team":"magic","elo":1878,"n":93,"form":"WWWWW","mom":-1}]};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (p) => Math.round(p * 100) + "%";
+const fmt3 = (x) => x == null ? "–" : x.toFixed(3);
+const american = (p) => p >= 0.5 ? "−" + Math.round(100 * p / (1 - p)) : "+" + Math.round(100 * (1 - p) / p);
+const dfmt = (unix, opts) => new Date(unix * 1000).toLocaleString(undefined, opts);
+const tOf = (r) => Date.parse(r.t.replace("Z", ":00Z")) / 1000;
+const TIER = { S: 0, A: 1, B: 2, C: 3 };
+
+function until(t) {
+  const d = t * 1000 - Date.now();
+  if (d <= 0) return d > -3 * 3600e3 ? ["LIVE", true] : ["started", false];
+  const m = Math.round(d / 60000);
+  if (m < 60) return ["in " + m + "m", false];
+  const h = Math.floor(m / 60);
+  if (h < 24) return ["in " + h + "h " + (m % 60) + "m", false];
+  return ["in " + Math.floor(h / 24) + "d " + (h % 24) + "h", false];
+}
+function cdHTML(t, cls) { const [s, live] = until(t); return `<span class="${cls} cd${live ? " live" : ""}" data-t="${t}">${s}</span>`; }
+function tick() {
+  document.querySelectorAll("[data-t]").forEach((el) => {
+    const [s, live] = until(+el.dataset.t);
+    el.textContent = el.classList.contains("f-cd") ? (live ? "LIVE NOW" : s === "started" ? "Started" : "Starts " + s) : s;
+    el.classList.toggle("live", live);
+  });
+}
+
+function topbar() {
+  const m = D.meta, s = D.status;
+  const paused = s.paused_until && s.paused_until * 1000 > Date.now();
+  $("pills").innerHTML =
+    `<span class="pill"><span class="dot${paused ? " warn" : ""}"></span>${paused ? "HLTV paused us · retry " + dfmt(s.paused_until, { hour: "numeric", minute: "2-digit" }) : "Reading HLTV"}</span>` +
+    (s.bo3 ? `<span class="pill"><span class="dot"></span>Reading bo3.gg${s.bo3.list_done ? "" : " · backfilling"}</span>` : "") +
+    `<span class="pill">model v${esc(m.version)} · trained ${dfmt(m.trained_at, { month: "short", day: "numeric" })}</span>` +
+    `<span class="pill">${esc(m.rows.toLocaleString())} matches</span>`;
+}
+
+function featured() {
+  const P = (D.predictions || []).filter((r) => tOf(r) * 1000 > Date.now() - 3 * 3600e3);
+  if (!P.length) { $("feat").innerHTML = `<div class="glow"></div><span class="label">Featured match</span><div class="empty">No upcoming matches with both teams decided right now. The worker checks HLTV's schedule every 3 hours.</div>`; return; }
+  const r = P.slice().sort((x, y) => (TIER[x.tier] ?? 9) - (TIER[y.tier] ?? 9) || (y.stars || 0) - (x.stars || 0) || tOf(x) - tOf(y))[0];
+  const t = tOf(r), [cd, live] = until(t);
+  const ou = r.tm && r.tm.length ? `<span>Over 2.5 maps <b>${pct(r.tm[0][1])}</b></span>` : "";
+  const sc = r.sc && r.sc.length === 4 ? `<span title="Exact map score for ${esc(r.a)}">2-0 <b>${pct(r.sc[0])}</b> · 2-1 <b>${pct(r.sc[1])}</b> · 1-2 <b>${pct(r.sc[2])}</b> · 0-2 <b>${pct(r.sc[3])}</b></span>` : "";
+  const rk = (i) => r.rank && r.rank[i] ? "#" + r.rank[i] + " · " : "";
+  $("feat").innerHTML = `<div class="glow"></div>
+    <div class="f-top"><span class="label">Featured</span><span class="tier ${esc(r.tier)}">${esc(r.tier)}</span><span class="tag">Bo${esc(r.bo)}</span>${r.lan ? '<span class="tag lan">LAN</span>' : ""}<span class="ev">${esc(r.ev)}</span></div>
+    <div class="f-match">
+      <div class="f-team a"><span class="nm">${esc(r.a)}</span><span class="meta">${rk(0)}Elo ${r.elo ? r.elo[0] : "–"} · ${american(r.p)}</span></div>
+      <div class="f-mid">
+        <div class="f-pcts"><span class="a">${Math.round(r.p * 100)}<small>%</small></span><span class="vs">VS</span><span class="b">${100 - Math.round(r.p * 100)}<small>%</small></span></div>
+        <span class="f-cd${live ? " live" : ""}" data-t="${t}">${live ? "LIVE NOW" : cd === "started" ? "Started" : "Starts " + cd}</span>
+      </div>
+      <div class="f-team b"><span class="nm">${esc(r.b)}</span><span class="meta">${american(1 - r.p)} · Elo ${r.elo ? r.elo[1] : "–"}${r.rank && r.rank[1] ? " · #" + r.rank[1] : ""}</span></div>
+    </div>
+    <div class="splitbar"><i class="a" style="width:${(r.p * 100).toFixed(1)}%"></i><i class="b" style="width:${((1 - r.p) * 100).toFixed(1)}%"></i></div>
+    ${mapsHTML(r)}
+    <div class="f-foot"><span>${dfmt(t, { weekday: "long", hour: "numeric", minute: "2-digit" })}</span>${ou}${sc}<span class="grade ${esc(r.trust)}" title="${esc(r.why)}">grade ${esc(r.trust)}</span><span>${esc(r.why)}</span><a href="${esc(r.url)}" target="_blank" rel="noopener">${r.src === "bo3" ? "bo3.gg" : "HLTV"} ↗</a></div>`;
+}
+
+function tiles() {
+  const s = D.status, bt = D.metrics.backtest || {}, live = D.metrics.live;
+  const mg = s.merged || { matches: s.matches, with_players: s.with_players, linked: 0, bo3_only: 0 };
+  const share = mg.matches ? mg.with_players / mg.matches : 0;
+  const w = (D.metrics.benchmark || {})["with closing market"];
+  const b3 = s.bo3;
+  $("tiles").innerHTML = `
+    <div class="tile hud"><span class="label">Matches on file</span><span class="big">${mg.matches.toLocaleString()}</span>
+      <span class="sub">HLTV ${s.matches.toLocaleString()}${mg.bo3_only ? " · bo3.gg only " + mg.bo3_only.toLocaleString() : ""}${b3 && !b3.list_done ? " · backfilling to 2023" : ""}</span></div>
+    <div class="tile hud"><span class="label">With player data</span><span class="big">${(share * 100).toFixed(share < .1 && share > 0 ? 1 : 0)}%</span>
+      <div class="meter"><i style="width:${Math.max(share * 100, 0.8).toFixed(1)}%"></i></div>
+      <span class="sub">${mg.with_players.toLocaleString()} matches with player stats${b3 ? " · bo3.gg " + b3.with_stats.toLocaleString() + " of " + b3.parsed.toLocaleString() : ""}</span></div>
+    <div class="tile hud"><span class="label">Backtest log loss</span><span class="big" style="color:var(--ct)">${fmt3(bt.logloss)}</span>
+      <span class="sub">${(bt.n || 0).toLocaleString()} held-out · Elo alone ${fmt3(bt.elo_logloss)}${bt.acc ? " · " + pct(bt.acc) + " picks right" : ""}</span></div>
+    <div class="tile hud"><span class="label">${live ? "Live record" : "Vs closing market"}</span><span class="big" style="color:var(--t)">${live ? fmt3(live.logloss) : w ? (w.mine - w.market >= 0 ? "+" : "−") + Math.abs(w.mine - w.market).toFixed(3) : "–"}</span>
+      <span class="sub">${live ? live.n + " graded · " + pct(live.acc) + " favourites won" : w ? "log-loss gap on " + w.n + " matches · lower is better" : "Grading starts as logged matches finish"}</span></div>`;
+}
+
+const FILTERS = [
+  ["all", "All", () => true],
+  ["top", "Tier S–A", (r) => r.tier === "S" || r.tier === "A"],
+  ["bo3", "Bo3+", (r) => r.bo >= 3],
+  ["lan", "LAN", (r) => r.lan],
+  ["lineups", "Lineups in", (r) => r.trust === "A" || r.trust === "B"],
+];
+let filt = "all";
+try { filt = localStorage.getItem("cl-filter") || "all"; } catch (e) {}
+if (!FILTERS.some((f) => f[0] === filt)) filt = "all";
+
+function filters() {
+  const P = D.predictions || [];
+  $("filters").innerHTML = FILTERS.map(([k, n, f]) => `<button type="button" data-k="${k}" aria-pressed="${k === filt}">${n}<span>${P.filter(f).length}</span></button>`).join("");
+  $("filters").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    filt = b.dataset.k; try { localStorage.setItem("cl-filter", filt); } catch (err) {}
+    filters(); slate();
+  };
+}
+
+// map model (v11): the likeliest maps, team a's chance on each, and how likely each is to be played
+const mapsHTML = (r) => r.maps && r.maps.length ? `<div class="maps" title="Map by map: ${esc(r.a)}'s chance on each map, and the chance the map gets played (from both teams' veto habits)">${r.maps.slice(0, 3).map((m) => `<span>${esc(String(m[0]).charAt(0).toUpperCase() + String(m[0]).slice(1))} <b>${pct(m[2])}</b> <i>· ${Math.round(m[1] * 100)}% played</i></span>`).join("")}</div>` : "";
+
+// props (v11.1): round totals of maps 1-2 and player kills, priced by the map model
+const propsHTML = (r) => {
+  const rt = r.rt || {}, kp = r.kp || [];
+  if (!Object.keys(rt).length && !kp.length) return "";
+  const tot = Object.entries(rt).map(([k, v]) => `<span>${k === "map1" ? "Map 1" : "Map 2"}: <b>${v.exp}</b> rounds expected · over 21.5 <b>${pct(v.o["21.5"])}</b> · overtime <b>${pct(v.ot)}</b></span>`).join("");
+  const row = (x) => `<span>${esc(x[0])}</span><span>${x[2]}</span><span>o${x[3]}</span><b>${pct(x[4])}</b>`;
+  const team = (side, name) => kp.filter((x) => x[1] === side).map(row).join("");
+  const kills = kp.length ? `<div class="pt"><span class="h">Kills, maps ${esc(r.km || "1-2")}</span><span class="h">exp</span><span class="h">line</span><span class="h">over</span>${team(1)}${team(2)}</div>` : "";
+  return `<details class="props"><summary>Props: round totals and player kills</summary><div class="rt">${tot}</div>${kills}</details>`;
+};
+
+function card(r) {
+  const t = tOf(r), favA = r.p >= 0.5;
+  const ou = r.tm && r.tm.length ? `<span>O 2.5 maps <b>${pct(r.tm[0][1])}</b></span>` : "";
+  const meta = (i, p) => `${r.rank && r.rank[i] ? "#" + r.rank[i] + " · " : ""}${american(p)}${r.elo ? " · " + r.elo[i] : ""}`;
+  const lu = r.la || r.lb ? `<div class="lineup" title="${esc(r.la)} vs ${esc(r.lb)}">${esc(r.la || "lineup not announced")} — ${esc(r.lb || "lineup not announced")}</div>` : "";
+  return `<article class="card hud">
+    <div class="c-top"><span class="time">${dfmt(t, { hour: "numeric", minute: "2-digit" })}</span>${cdHTML(t, "")}<span class="sp"></span><span class="tag">Bo${esc(r.bo)}</span>${r.lan ? '<span class="tag lan">LAN</span>' : ""}<span class="tier ${esc(r.tier)}" title="tier ${esc(r.tier)}">${esc(r.tier)}</span></div>
+    <div class="c-ev" title="${esc(r.ev)}">${esc(r.ev)}</div>
+    <div class="row a${favA ? " fav" : ""}"><div style="min-width:0"><span class="nm">${esc(r.a)}</span><span class="meta">${meta(0, r.p)}</span></div><span class="pc">${pct(r.p)}</span></div>
+    <div class="splitbar"><i class="a" style="width:${(r.p * 100).toFixed(1)}%"></i><i class="b" style="width:${((1 - r.p) * 100).toFixed(1)}%"></i></div>
+    <div class="row b${favA ? "" : " fav"}"><div style="min-width:0"><span class="nm">${esc(r.b)}</span><span class="meta">${meta(1, 1 - r.p)}</span></div><span class="pc">${pct(1 - r.p)}</span></div>
+    ${lu}
+    ${mapsHTML(r)}
+    ${propsHTML(r)}
+    <div class="c-foot">${ou}<span class="grade ${esc(r.trust)}" title="${esc(r.why)}">grade ${esc(r.trust)}</span><span class="sp"></span><a href="${esc(r.url)}" target="_blank" rel="noopener">${r.src === "bo3" ? "bo3.gg" : "HLTV"} ↗</a></div>
+  </article>`;
+}
+
+function slate() {
+  const f = FILTERS.find((x) => x[0] === filt)[2];
+  const P = (D.predictions || []).filter(f).slice().sort((a, b) => tOf(a) - tOf(b));
+  if (!P.length) { $("slate").innerHTML = `<div class="hud empty">${(D.predictions || []).length ? "No matches under this filter." : "No upcoming matches with both teams decided right now. The worker checks HLTV's schedule every 3 hours."}</div>`; return; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const groups = new Map();
+  for (const r of P) {
+    const d = new Date(tOf(r) * 1000); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - today) / 864e5);
+    const key = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  $("slate").innerHTML = `<div style="display:grid;gap:22px">` + [...groups].map(([k, rs]) =>
+    `<div class="day"><div class="dayhead"><b>${esc(k)}</b><span class="label">${rs.length} match${rs.length > 1 ? "es" : ""}</span></div><div class="cards">${rs.map(card).join("")}</div></div>`).join("") + `</div>`;
+}
+
+function scorecard() {
+  const b = D.metrics.benchmark || {};
+  const w = b["with closing market"];
+  if (!w) { $("vs").innerHTML = `<h3>Head to head</h3><p class="note">No matches in common with the bot history yet.</p>`; $("tiers").innerHTML = ""; return; }
+  const rows = [["This model", w.mine, "linear-gradient(90deg,var(--ct-deep),var(--ct))", true], ["Friend's model", w.friend, "var(--line-2)", false], ["Closing market", w.market, "linear-gradient(90deg,var(--t-deep),var(--t))", false]];
+  const lo = 0.55, hi = 0.70;
+  const gap = w.mine - w.friend;
+  $("vs").innerHTML = `<div class="sechead"><h3>Head to head</h3><span class="label">${w.n} matches priced by all three</span></div>` +
+    rows.map(([n, v, c, me]) => `<div class="vsrow${me ? " me" : ""}"><span class="name">${n}</span><div class="track"><i style="width:${Math.max(2, Math.min(100, (v - lo) / (hi - lo) * 100)).toFixed(1)}%;background:${c}"></i></div><span class="v">${fmt3(v)}</span></div>`).join("") +
+    `<div class="callout"><b>${gap <= 0 ? "AHEAD" : "+" + gap.toFixed(3)}</b><span>${gap <= 0 ? "This model beats the friend's model on these matches." : "behind the friend's model on these matches."}</span></div>` +
+    `<p class="note">Bars start at 0.55. ${b.matched ? b.matched + " of the bot's graded matches are on HLTV; the rest (mostly ESEA Advanced and small leagues) are not." : ""}</p>`;
+  const tiers = ["tier S", "tier A", "tier B", "tier C", "over2.5"].filter((k) => b[k]);
+  const best = (o) => Math.min(...[o.mine, o.friend, o.market].filter((x) => x != null));
+  $("tiers").innerHTML = `<div class="sechead"><h3>By segment</h3><span class="label">best in green</span></div><div class="scroll"><table><thead><tr><th>Segment</th><th class="r">n</th><th class="r">Mine</th><th class="r">Friend</th><th class="r">Market</th></tr></thead><tbody>` +
+    tiers.map((k) => { const o = b[k], m = best(o), c = (v) => v != null && v === m ? " best" : "";
+      return `<tr><td>${k === "over2.5" ? "Over/under 2.5 maps" : "Tier " + k.slice(5)}</td><td class="r num">${o.n}</td><td class="r num${c(o.mine)}">${fmt3(o.mine)}</td><td class="r num${c(o.friend)}">${fmt3(o.friend)}</td><td class="r num${c(o.market)}">${o.market != null ? fmt3(o.market) : "–"}</td></tr>`; }).join("") +
+    `</tbody></table></div>` + pmTable();
+}
+
+// second market scoreboard: Polymarket's closing price on the matches we can pair (log loss only)
+function pmTable() {
+  const pm = D.metrics.polymarket || {};
+  if (!pm.n || !pm.all) return "";
+  const rows = [["All paired matches", pm.n, pm.all], ["Volume under $5k", pm.volume_under_5k && pm.volume_under_5k.n, pm.volume_under_5k],
+                ["Volume $5k-50k", pm.volume_5k_50k && pm.volume_5k_50k.n, pm.volume_5k_50k], ["Volume over $50k", pm.volume_over_50k && pm.volume_over_50k.n, pm.volume_over_50k]].filter((r) => r[2]);
+  return `<div class="sechead" style="margin-top:18px"><h3>Against Polymarket</h3><span class="label">closing price, log loss, lower is better</span></div><div class="scroll"><table><thead><tr><th>Matches</th><th class="r">n</th><th class="r">Mine</th><th class="r">Polymarket</th></tr></thead><tbody>` +
+    rows.map(([n, k, o]) => { const m = Math.min(o.mine, o.market), c = (v) => v === m ? " best" : "";
+      return `<tr><td>${n}</td><td class="r num">${k}</td><td class="r num${c(o.mine)}">${fmt3(o.mine)}</td><td class="r num${c(o.market)}">${fmt3(o.market)}</td></tr>`; }).join("") +
+    `</tbody></table></div><p class="note">Newest 120 days the model was not trained on. Polymarket prices are a scoreboard only, never an input.</p>`;
+}
+
+function lineChart() {
+  const M = D.metrics.by_month || [];
+  if (!M.length) { $("months").innerHTML = `<p class="note">No months scored yet.</p>`; return; }
+  const W = 480, H = 230, L = 44, R = 14, T = 14, B = 30;
+  const vals = M.flatMap((m) => [m.logloss, m.elo_logloss]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  lo = Math.floor((lo - 0.005) * 100) / 100; hi = Math.ceil((hi + 0.005) * 100) / 100;
+  const x = (i) => L + (M.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (M.length - 1));
+  const y = (v) => T + (hi - v) / (hi - lo) * (H - T - B);
+  const ticks = []; for (let v = lo; v <= hi + 1e-9; v += 0.01) ticks.push(+v.toFixed(2));
+  const step = Math.ceil(ticks.length / 6);
+  const pts = (k) => M.map((m, i) => [x(i), y(m[k])]);
+  const path = (k) => pts(k).map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
+  const area = path("logloss") + `L${x(M.length - 1).toFixed(1)},${H - B}L${x(0).toFixed(1)},${H - B}Z`;
+  $("months").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly log loss, model versus Elo">
+    <defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--ct)" stop-opacity=".35"/><stop offset="1" stop-color="var(--ct)" stop-opacity="0"/></linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    ${ticks.filter((_, i) => i % step === 0).map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v.toFixed(2)}</text>`).join("")}
+    ${M.map((m, i) => `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">${m.month.slice(2).replace("-", "/")}</text>`).join("")}
+    ${M.length > 1 ? `<path d="${area}" fill="url(#ga)"/>` : ""}
+    <path d="${path("elo_logloss")}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <path d="${path("logloss")}" fill="none" stroke="var(--ct)" stroke-width="2.4" filter="url(#glow)"/>
+    ${M.map((m, i) => `<circle cx="${x(i)}" cy="${y(m.logloss)}" r="${i === M.length - 1 ? 4.5 : 3}" fill="var(--bg)" stroke="var(--ct)" stroke-width="2"><title>${m.month}: ${m.logloss.toFixed(3)} vs Elo ${m.elo_logloss.toFixed(3)} (${m.n} matches)</title></circle>`).join("")}
+  </svg><div class="legend"><span><i style="background:var(--ct)"></i>model</span><span><i style="background:var(--dim)"></i>Elo only</span></div>`;
+}
+
+function calibChart() {
+  const C = D.metrics.calibration || [];
+  if (!C.length) { $("calib").innerHTML = `<p class="note">Not enough matches yet.</p>`; return; }
+  const S = 260, P = 32;
+  const s = (v) => P + v * (S - 2 * P);
+  const maxN = Math.max(...C.map((c) => c.n));
+  $("calib").innerHTML = `<svg viewBox="0 0 ${S} ${S}" width="100%" style="max-width:360px;justify-self:center;display:block;margin:0 auto" role="img" aria-label="Calibration: predicted versus actual win rate">
+    ${[0, .25, .5, .75, 1].map((v) => `<line x1="${s(v)}" x2="${s(v)}" y1="${S - s(0)}" y2="${S - s(1)}" stroke="var(--line)"/><line y1="${S - s(v)}" y2="${S - s(v)}" x1="${s(0)}" x2="${s(1)}" stroke="var(--line)"/><text x="${s(v)}" y="${S - 12}" text-anchor="middle">${pct(v)}</text><text x="${P - 6}" y="${S - s(v) + 3}" text-anchor="end">${pct(v)}</text>`).join("")}
+    <line x1="${s(0)}" y1="${S - s(0)}" x2="${s(1)}" y2="${S - s(1)}" stroke="var(--t)" stroke-opacity=".6" stroke-dasharray="4 4"/>
+    ${C.map((c) => `<circle cx="${s(c.pred)}" cy="${S - s(c.actual)}" r="${(3 + 7 * Math.sqrt(c.n / maxN)).toFixed(1)}" fill="var(--ct)" fill-opacity=".35" stroke="var(--ct)" stroke-width="1.5"><title>predicted ${pct(c.pred)}, won ${pct(c.actual)} of ${c.n}</title></circle>`).join("")}
+  </svg><div class="legend"><span>Across: predicted chance · Up: how often it happened</span></div>`;
+}
+
+function changelog() {
+  const L = (D.changelog || []).slice().reverse();
+  $("log").innerHTML = L.length ? L.map((e) => {
+    const gain = e.champion_logloss - e.best_logloss;
+    return `<div class="ev"><span class="pin${e.promoted ? " up" : ""}"></span>
+      <div class="what"><div><span class="num">v${e.version}</span> · <span class="label">${dfmt(e.at, { month: "short", day: "numeric" })}</span></div>
+      <div><b>${e.promoted ? "Promoted a challenger" : "Kept the champion"}</b>${e.promoted ? ": " + esc(e.note.replace("promoted: ", "")) : ""}</div>
+      <div class="tried">Champion ${e.champion_logloss.toFixed(4)} on ${e.eval_n.toLocaleString()} held-out matches; best of ${e.tried.length} challengers ${e.best_logloss.toFixed(4)} (<span class="${gain > 0 ? "pos" : "neg"}">${gain >= 0 ? "−" : "+"}${Math.abs(gain).toFixed(4)}</span>). Needs −0.0010 to switch.</div></div></div>`;
+  }).join("") : `<p class="note">No retrain rounds yet. The first runs Monday 05:00.</p>`;
+}
+
+let allTeams = false;
+function teams() {
+  const ALL = D.teams || [], T = allTeams ? ALL : ALL.slice(0, 12);
+  if (!T.length) { $("teams").innerHTML = `<tbody><tr><td class="note">No rated teams yet.</td></tr></tbody>`; return; }
+  const hi = ALL[0].elo, lo = ALL[ALL.length - 1].elo - 20;
+  const mb = $("more"); mb.hidden = ALL.length <= 12; mb.textContent = allTeams ? "Show top 12" : "Show all " + ALL.length;
+  mb.onclick = () => { allTeams = !allTeams; teams(); };
+  $("teams").innerHTML = `<thead><tr><th>#</th><th>Team</th><th class="r">Elo</th><th class="r">Trend</th><th>Last 5</th></tr></thead><tbody>` +
+    T.map((t, i) => `<tr class="${i < 3 ? "top3" : ""}"><td class="num rk">${String(i + 1).padStart(2, "0")}</td><td>${esc(t.team)}</td>
+      <td class="r"><div class="elo"><div class="mini"><i style="width:${((t.elo - lo) / (hi - lo) * 100).toFixed(1)}%"></i></div><span class="num">${t.elo}</span></div></td>
+      <td class="r num ${t.mom > 0 ? "pos" : t.mom < 0 ? "neg" : ""}">${t.mom > 0 ? "▲" : t.mom < 0 ? "▼" : ""}${Math.abs(t.mom) || "–"}</td>
+      <td><span class="form" title="${esc(t.form)}">${[...t.form].map((c) => `<i class="${c === "W" ? "w" : ""}"></i>`).join("")}</span></td></tr>`).join("") + `</tbody>`;
+}
+
+topbar(); featured(); tiles(); filters(); slate(); scorecard(); lineChart(); calibChart(); changelog(); teams();
+setInterval(tick, 30000);
+$("foot").innerHTML = `<span>Built ${dfmt(D.built, { dateStyle: "medium", timeStyle: "short" })} · data from HLTV.org (first choice) and bo3.gg, both read slowly; extra match results from Liquipedia (CC BY-SA 3.0).</span><span>Probabilities are estimates, not betting advice.</span>`;
+</script>
